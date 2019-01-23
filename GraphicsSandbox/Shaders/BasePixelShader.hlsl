@@ -146,5 +146,5 @@ float4 main(VertexToPixel input) : SV_TARGET
 	color = color / (color + float3(1.0f, 1.0f, 1.0f));
 	color = pow(color, float3(0.45454545f, 0.45454545f, 0.45454545f));
 
-	return float4(color, 1.0f);
+	return float4(input.worldPos, ao);
 }

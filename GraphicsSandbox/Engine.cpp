@@ -37,6 +37,7 @@ void Engine::GameSetup()
 	/* Load Shaders */
 	assetManager->LoadVertexShader((char*)"BaseVS", "BaseVertexShader", graphics);
 	assetManager->LoadPixelShader((char*)"BasePS", "BasePixelShader", graphics);
+	//assetManager->LoadPixelShader((char*)"GBufferPS", "GBufferPixelShader", graphics);
 	assetManager->LoadVertexShader((char*)"SkyboxVS", "SkyboxVertexShader", graphics);
 	assetManager->LoadPixelShader((char*)"SkyboxPS", "SkyboxPixelShader", graphics);
 
@@ -90,72 +91,74 @@ void Engine::GameSetup()
 	}
 
 	/* Create Game Objects */
-	GameEntity* cube = new GameEntity(); // Entity 0 should always be a unit cube
-	cube->position = XMFLOAT3(0.f, 0.f, 0.f);
-	cube->scale = XMFLOAT3(1.f, 1.f, 1.f);
-	XMStoreFloat4(&cube->rotationQuaternion, XMQuaternionIdentity());
-	cube->modelKey = "Cube";
-	cube->albedoKey = "A_Gold";
-	cube->normalKey = "N_Plain";
-	cube->metallicKey = "M_100Metal";
-	cube->roughnessKey = "R_Gold";
-	cube->aoKey = "M_100Metal";
-	cube->vertexShaderConstants = {};
+	{
+		GameEntity* cube = new GameEntity(); // Entity 0 should always be a unit cube
+		cube->position = XMFLOAT3(0.f, 0.f, 0.f);
+		cube->scale = XMFLOAT3(1.f, 1.f, 1.f);
+		XMStoreFloat4(&cube->rotationQuaternion, XMQuaternionIdentity());
+		cube->modelKey = "Cube";
+		cube->albedoKey = "A_Gold";
+		cube->normalKey = "N_Plain";
+		cube->metallicKey = "M_100Metal";
+		cube->roughnessKey = "R_Gold";
+		cube->aoKey = "M_100Metal";
+		cube->vertexShaderConstants = {};
 
 
-	GameEntity* snowball = new GameEntity();
-	snowball->position = XMFLOAT3(0.f, 0.f, 5.0f);
-	snowball->scale = XMFLOAT3(2.f, 2.f, 2.f);
-	XMStoreFloat4(&snowball->rotationQuaternion, XMQuaternionIdentity());
-	snowball->modelKey = "Sphere";
-	snowball->albedoKey = "A_Snow";
-	snowball->normalKey = "N_Snow";
-	snowball->metallicKey = "M_0Metal";
-	snowball->roughnessKey = "R_Snow";
-	snowball->aoKey = "AO_Snow";
-	snowball->vertexShaderConstants = {};
+		GameEntity* snowball = new GameEntity();
+		snowball->position = XMFLOAT3(0.f, 0.f, 5.0f);
+		snowball->scale = XMFLOAT3(2.f, 2.f, 2.f);
+		XMStoreFloat4(&snowball->rotationQuaternion, XMQuaternionIdentity());
+		snowball->modelKey = "Sphere";
+		snowball->albedoKey = "A_Snow";
+		snowball->normalKey = "N_Snow";
+		snowball->metallicKey = "M_0Metal";
+		snowball->roughnessKey = "R_Snow";
+		snowball->aoKey = "AO_Snow";
+		snowball->vertexShaderConstants = {};
 
-	GameEntity* rock = new GameEntity();
-	rock->scale = XMFLOAT3(2.f, 2.f, 2.f);
-	rock->position = XMFLOAT3(5.f, 0.f, 5.0f);
-	XMStoreFloat4(&rock->rotationQuaternion, XMQuaternionIdentity());
-	rock->modelKey = "Sphere";
-	rock->albedoKey = "A_Rock";
-	rock->normalKey = "N_Rock";
-	rock->metallicKey = "M_0Metal";
-	rock->roughnessKey = "R_Rock";
-	rock->aoKey = "AO_Rock";
-	rock->vertexShaderConstants = {};
+		GameEntity* rock = new GameEntity();
+		rock->scale = XMFLOAT3(2.f, 2.f, 2.f);
+		rock->position = XMFLOAT3(5.f, 0.f, 5.0f);
+		XMStoreFloat4(&rock->rotationQuaternion, XMQuaternionIdentity());
+		rock->modelKey = "Sphere";
+		rock->albedoKey = "A_Rock";
+		rock->normalKey = "N_Rock";
+		rock->metallicKey = "M_0Metal";
+		rock->roughnessKey = "R_Rock";
+		rock->aoKey = "AO_Rock";
+		rock->vertexShaderConstants = {};
 
-	GameEntity* block = new GameEntity();
-	block->scale = XMFLOAT3(1.f, 1.f, 1.f);
-	block->position = XMFLOAT3(-5.f, 0.f, 5.0f);
-	XMStoreFloat4(&block->rotationQuaternion, XMQuaternionIdentity());
-	block->modelKey = "Cube";
-	block->albedoKey = "A_Gold";
-	block->normalKey = "N_Plain";
-	block->metallicKey = "M_100Metal";
-	block->roughnessKey = "R_Gold";
-	block->aoKey = "M_100Metal";
-	block->vertexShaderConstants = {};
+		GameEntity* block = new GameEntity();
+		block->scale = XMFLOAT3(1.f, 1.f, 1.f);
+		block->position = XMFLOAT3(-5.f, 0.f, 5.0f);
+		XMStoreFloat4(&block->rotationQuaternion, XMQuaternionIdentity());
+		block->modelKey = "Cube";
+		block->albedoKey = "A_Gold";
+		block->normalKey = "N_Plain";
+		block->metallicKey = "M_100Metal";
+		block->roughnessKey = "R_Gold";
+		block->aoKey = "M_100Metal";
+		block->vertexShaderConstants = {};
 
-	GameEntity* cerberus = new GameEntity();
-	cerberus->scale = XMFLOAT3(.1f, .1f, .1f);
-	cerberus->position = XMFLOAT3(-10.f, 0.f, 20.0f);
-	XMStoreFloat4(&cerberus->rotationQuaternion, XMQuaternionIdentity());
-	cerberus->modelKey = "Cerberus";
-	cerberus->albedoKey = "A_Cerberus";
-	cerberus->normalKey = "N_Cerberus";
-	cerberus->metallicKey = "M_Cerberus";
-	cerberus->roughnessKey = "R_Cerberus";
-	cerberus->aoKey = "AO_Cerberus";
-	cerberus->vertexShaderConstants = {};
+		GameEntity* cerberus = new GameEntity();
+		cerberus->scale = XMFLOAT3(.1f, .1f, .1f);
+		cerberus->position = XMFLOAT3(-10.f, 0.f, 20.0f);
+		XMStoreFloat4(&cerberus->rotationQuaternion, XMQuaternionRotationRollPitchYaw(-XM_PIDIV2, 0.f, 0.f));
+		cerberus->modelKey = "Cerberus";
+		cerberus->albedoKey = "A_Cerberus";
+		cerberus->normalKey = "N_Cerberus";
+		cerberus->metallicKey = "M_Cerberus";
+		cerberus->roughnessKey = "R_Cerberus";
+		cerberus->aoKey = "AO_Cerberus";
+		cerberus->vertexShaderConstants = {};
 
-	entities.push_back(cube);
-	entities.push_back(snowball);
-	entities.push_back(rock);
-	entities.push_back(block);
-	entities.push_back(cerberus);
+		entities.push_back(cube);
+		entities.push_back(snowball);
+		entities.push_back(rock);
+		entities.push_back(block);
+		entities.push_back(cerberus);
+	}
 
 	for (auto& e : entities)
 	{
@@ -180,6 +183,9 @@ void Engine::GameSetup()
 	skyboxVShaderConstants.view = camera->view;
 	pixelShaderConstantBuffer = graphics->CreateConstantBuffer(&pixelShaderConstants, sizeof(PShaderConstants));
 	skyboxVShaderConstantBuffer = graphics->CreateConstantBuffer(&skyboxVShaderConstants, sizeof(SkyboxVShaderConstants));
+
+	/* Set up gbuffer */
+
 }
 
 void Engine::Run()

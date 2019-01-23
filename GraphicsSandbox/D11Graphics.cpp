@@ -146,6 +146,39 @@ bool D11Graphics::Initialize()
 	ds.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	device->CreateDepthStencilState(&ds, &skyDepthState);
 
+	/* Set up gbuffer */
+	ID3D11Texture2D* texture;
+
+	D3D11_TEXTURE2D_DESC textureDesc = {}; // Standard fare RTVs, just set up the textures, then make the rtv and srv, and throw away the ref to the texture
+	textureDesc.Width = windowWidth;
+	textureDesc.Height = windowHeight;
+	textureDesc.MipLevels = 1;
+	textureDesc.ArraySize = 1;
+	textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UINT;
+	textureDesc.SampleDesc.Count = 1;
+	textureDesc.Usage = D3D11_USAGE_DEFAULT;
+	textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	textureDesc.CPUAccessFlags = 0;
+	textureDesc.MiscFlags = 0;
+
+	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+	rtvDesc.Format = textureDesc.Format;
+	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	rtvDesc.Texture2D.MipSlice = 0;
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = textureDesc.Format;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	for (int i = 0; i < 3; i++)
+	{
+		device->CreateTexture2D(&textureDesc, NULL, &texture);
+		device->CreateRenderTargetView(texture, &rtvDesc, &gBufferRTVs[i]);
+		device->CreateShaderResourceView(texture, &srvDesc, &gBufferSRVs[i]);
+		texture->Release();
+	}
 
 	return true;
 }
@@ -191,6 +224,12 @@ void D11Graphics::DestroyGraphics()
 
 	if (depthStencilView) { depthStencilView->Release(); }
 	if (backBufferRTV) { backBufferRTV->Release(); }
+
+	for (int i = 0; i < 3; i++)
+	{
+		gBufferRTVs[i]->Release();
+		gBufferSRVs[i]->Release();
+	}
 
 	if (swapChain) { swapChain->Release(); }
 	if (context) { context->Release(); }
@@ -567,10 +606,16 @@ LRESULT D11Graphics::ProcessMessage(HWND hWnd, UINT msg, WPARAM wParam, LPARAM l
 	return DefWindowProc(hWnd, msg, wParam, lParam);
 }
 
-void D11Graphics::Resize()
+void D11Graphics::Resize() // TODO: deferred rendering support
 {
 	if (depthStencilView) { depthStencilView->Release(); }
 	if (backBufferRTV) { backBufferRTV->Release(); }
+
+	for (int i = 0; i < 3; i++)
+	{
+		gBufferRTVs[i]->Release();
+		gBufferSRVs[i]->Release();
+	}
 
 	swapChain->ResizeBuffers(1, windowWidth, windowHeight, DXGI_FORMAT_R8G8B8A8_UNORM, 0);
 
@@ -607,6 +652,40 @@ void D11Graphics::Resize()
 	viewport.MinDepth = 0.0f;
 	viewport.MaxDepth = 1.0f;
 	context->RSSetViewports(1, &viewport);
+
+	/* Set up gbuffer */
+	ID3D11Texture2D* texture;
+
+	D3D11_TEXTURE2D_DESC textureDesc = {}; // Standard fare RTVs, just set up the textures, then make the rtv and srv, and throw away the ref to the texture
+	textureDesc.Width = windowWidth;
+	textureDesc.Height = windowHeight;
+	textureDesc.MipLevels = 1;
+	textureDesc.ArraySize = 1;
+	textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UINT;
+	textureDesc.SampleDesc.Count = 1;
+	textureDesc.Usage = D3D11_USAGE_DEFAULT;
+	textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	textureDesc.CPUAccessFlags = 0;
+	textureDesc.MiscFlags = 0;
+
+	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+	rtvDesc.Format = textureDesc.Format;
+	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	rtvDesc.Texture2D.MipSlice = 0;
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = textureDesc.Format;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	for (int i = 0; i < 3; i++)
+	{
+		device->CreateTexture2D(&textureDesc, NULL, &texture);
+		device->CreateRenderTargetView(texture, &rtvDesc, &gBufferRTVs[i]);
+		device->CreateShaderResourceView(texture, &srvDesc, &gBufferSRVs[i]);
+		texture->Release();
+	}
 }
 
 void D11Graphics::OnMouseMove(WPARAM buttonState, int x, int y)
