@@ -146,6 +146,10 @@ bool D11Graphics::Initialize()
 	ds.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	device->CreateDepthStencilState(&ds, &skyDepthState);
 
+	ds.DepthEnable = false; // Depth stencil state for not overwriting the whole buffer with a deferred pass
+	ds.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+	device->CreateDepthStencilState(&ds, &depthWriteOffState);
+
 	/* Set up gbuffer */
 	ID3D11Texture2D* texture;
 
@@ -154,7 +158,7 @@ bool D11Graphics::Initialize()
 	textureDesc.Height = windowHeight;
 	textureDesc.MipLevels = 1;
 	textureDesc.ArraySize = 1;
-	textureDesc.Format = DXGI_FORMAT_R8G8B8A8_UINT;
+	textureDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
 	textureDesc.SampleDesc.Count = 1;
 	textureDesc.Usage = D3D11_USAGE_DEFAULT;
 	textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
@@ -180,6 +184,11 @@ bool D11Graphics::Initialize()
 		texture->Release();
 	}
 
+	for (int i = 0; i < 7; i++)
+	{
+		blankSRVs[i] = nullptr;
+	}
+
 	return true;
 }
 
@@ -200,19 +209,29 @@ void D11Graphics::BeginNewFrame()
 {
 	context->RSSetState(normalRasterState);
 	context->OMSetDepthStencilState(0, 0);
-	context->OMSetRenderTargets(1, &backBufferRTV, depthStencilView);
+	context->OMSetRenderTargets(3, gBufferRTVs, depthStencilView);
 	context->RSSetViewports(1, &viewport);
 
 	const float color[4] = { 0,1,1,0 };
-	context->ClearRenderTargetView(backBufferRTV, color); // Will remove this once skyboxes work
+	context->ClearRenderTargetView(backBufferRTV, color);
+	for (int i = 0; i < 3; i++)
+	{
+		context->ClearRenderTargetView(gBufferRTVs[i], color);
+	}
 	context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 	context->PSSetSamplers(0, 1, &sampler);
 }
 
+void D11Graphics::BeginDeferredPhase()
+{
+	context->OMSetRenderTargets(1, &backBufferRTV, depthStencilView);
+}
+
 void D11Graphics::EndFrame()
 {
 	swapChain->Present(0, 0);
+	context->PSSetShaderResources(0, 7, blankSRVs); // Clear set resources so they can be used again
 }
 
 void D11Graphics::DestroyGraphics()
@@ -221,6 +240,7 @@ void D11Graphics::DestroyGraphics()
 	normalRasterState->Release();
 	skyRasterState->Release();
 	skyDepthState->Release();
+	depthWriteOffState->Release();
 
 	if (depthStencilView) { depthStencilView->Release(); }
 	if (backBufferRTV) { backBufferRTV->Release(); }
@@ -487,6 +507,20 @@ void D11Graphics::DrawSkybox(Mesh* unitCube)
 	context->RSSetState(skyRasterState);
 	context->OMSetDepthStencilState(skyDepthState, 0);
 	DrawMesh(unitCube);
+}
+
+void D11Graphics::DeferredCompositionPass()
+{
+	context->OMSetDepthStencilState(depthWriteOffState, 0);
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+	ID3D11Buffer* blank = 0;
+	context->IASetVertexBuffers(0, 1, &blank, &stride, &offset);
+	context->IASetIndexBuffer(0, DXGI_FORMAT_R32_UINT, 0);
+
+	context->PSSetShaderResources(0, 3, gBufferSRVs);
+
+	context->Draw(3, 0); // Draw one heckin big triangle
 }
 
 void D11Graphics::SetupWindow()

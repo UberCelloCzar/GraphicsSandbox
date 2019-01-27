@@ -22,7 +22,7 @@ Texture2D AOMap              : register(t4);
 
 SamplerState BasicSampler	: register(s0);
 
-PSOutput main(VertexToPixel input) : SV_TARGET
+PSOutput main(VertexToPixel input)
 {
 	PSOutput output;
 	output.color = float4(AlbedoMap.Sample(BasicSampler, input.uv).rgb, MetallicMap.Sample(BasicSampler, input.uv).r); // Sample albedo and metalness

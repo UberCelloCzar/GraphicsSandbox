@@ -37,7 +37,9 @@ void Engine::GameSetup()
 	/* Load Shaders */
 	assetManager->LoadVertexShader((char*)"BaseVS", "BaseVertexShader", graphics);
 	assetManager->LoadPixelShader((char*)"BasePS", "BasePixelShader", graphics);
-	//assetManager->LoadPixelShader((char*)"GBufferPS", "GBufferPixelShader", graphics);
+	assetManager->LoadPixelShader((char*)"GBufferPS", "GBufferPixelShader", graphics);
+	assetManager->LoadVertexShader((char*)"FillscreenVS", "FillscreenVertexShader", graphics);
+	assetManager->LoadPixelShader((char*)"DefCompPS", "DeferredCompositionPixelShader", graphics);
 	assetManager->LoadVertexShader((char*)"SkyboxVS", "SkyboxVertexShader", graphics);
 	assetManager->LoadPixelShader((char*)"SkyboxPS", "SkyboxPixelShader", graphics);
 
@@ -170,12 +172,12 @@ void Engine::GameSetup()
 	pixelShaderConstants.cameraPosition.x = camera->position.x;
 	pixelShaderConstants.cameraPosition.y = camera->position.y;
 	pixelShaderConstants.cameraPosition.z = camera->position.z;
-	pixelShaderConstants.lightPos1 = XMFLOAT3A(5.f, 2.f, 15.f);
-	pixelShaderConstants.lightPos2 = XMFLOAT3A(10.f, 5.f, 3.f);
-	pixelShaderConstants.lightPos3 = XMFLOAT3A(0.f, 10.f, 7.f);
-	pixelShaderConstants.lightColor1 = XMFLOAT3A(.95f, .95f, 0.f);
-	pixelShaderConstants.lightColor2 = XMFLOAT3A(0.f, .95f, .95f);
-	pixelShaderConstants.lightColor3 = XMFLOAT3A(.95f, 0.f, .95f);
+	//pixelShaderConstants.lightPos1 = XMFLOAT3A(5.f, 2.f, 15.f);
+	//pixelShaderConstants.lightPos2 = XMFLOAT3A(10.f, 5.f, 3.f);
+	//pixelShaderConstants.lightPos3 = XMFLOAT3A(0.f, 10.f, 7.f);
+	//pixelShaderConstants.lightColor1 = XMFLOAT3A(.95f, .95f, 0.f);
+	//pixelShaderConstants.lightColor2 = XMFLOAT3A(0.f, .95f, .95f);
+	//pixelShaderConstants.lightColor3 = XMFLOAT3A(.95f, 0.f, .95f);
 	skyboxVShaderConstants.projection = camera->projection;
 	skyboxVShaderConstants.view = camera->view;
 
@@ -183,9 +185,6 @@ void Engine::GameSetup()
 	skyboxVShaderConstants.view = camera->view;
 	pixelShaderConstantBuffer = graphics->CreateConstantBuffer(&pixelShaderConstants, sizeof(PShaderConstants));
 	skyboxVShaderConstantBuffer = graphics->CreateConstantBuffer(&skyboxVShaderConstants, sizeof(SkyboxVShaderConstants));
-
-	/* Set up gbuffer */
-
 }
 
 void Engine::Run()
@@ -239,7 +238,7 @@ void Engine::Draw()
 
 	CalculateProjViewMatrix();
 	graphics->SetVertexShader(assetManager->GetVertexShader(std::string("BaseVS")));
-	graphics->SetPixelShader(assetManager->GetPixelShader(std::string("BasePS")));
+	graphics->SetPixelShader(assetManager->GetPixelShader(std::string("GBufferPS")));
 	pixelShaderConstants.cameraPosition.x = camera->position.x;
 	pixelShaderConstants.cameraPosition.y = camera->position.y;
 	pixelShaderConstants.cameraPosition.z = camera->position.z;
@@ -248,15 +247,15 @@ void Engine::Draw()
 		CalculateProjViewWorldMatrix(entities[i]); // Update the main matrix in the vertex shader constants area of the entity
 
 		graphics->SetConstantBufferVS(entities[i]->vertexShaderConstantBuffer, &(entities[i]->vertexShaderConstants), sizeof(VShaderConstants));
-		graphics->SetConstantBufferPS(pixelShaderConstantBuffer, &pixelShaderConstants, sizeof(PShaderConstants));
+		//graphics->SetConstantBufferPS(pixelShaderConstantBuffer, &pixelShaderConstants, sizeof(PShaderConstants));
 		graphics->SetTexture(assetManager->GetTexture(entities[i]->albedoKey), 0);
 		graphics->SetTexture(assetManager->GetTexture(entities[i]->normalKey), 1);
 		graphics->SetTexture(assetManager->GetTexture(entities[i]->metallicKey), 2);
 		graphics->SetTexture(assetManager->GetTexture(entities[i]->roughnessKey), 3);
 		graphics->SetTexture(assetManager->GetTexture(entities[i]->aoKey), 4);
-		graphics->SetTexture(assetManager->GetTexture("BRDF_LUT"), 5);
-		graphics->SetTexture(assetManager->GetTexture("SM_IrrMap"), 6);
-		graphics->SetTexture(assetManager->GetTexture("SM_SpecMap"), 7);
+		//graphics->SetTexture(assetManager->GetTexture("BRDF_LUT"), 5);
+		//graphics->SetTexture(assetManager->GetTexture("SM_IrrMap"), 6);
+		//graphics->SetTexture(assetManager->GetTexture("SM_SpecMap"), 7);
 
 		Model* model = assetManager->GetModel(entities[i]->modelKey);
 
@@ -265,6 +264,19 @@ void Engine::Draw()
 			graphics->DrawMesh(model->meshes[j]); // If we have a bunch of the same object and we have time, I can add a render for instancing
 		}
 	}
+
+	/* Do the deferred lighting pass */
+	graphics->BeginDeferredPhase();
+
+	/* Combine everything */
+	graphics->SetVertexShader(assetManager->GetVertexShader("FillscreenVS"));
+	graphics->SetPixelShader(assetManager->GetPixelShader("DefCompPS"));
+	graphics->SetConstantBufferPS(pixelShaderConstantBuffer, &pixelShaderConstants, sizeof(PShaderConstants));
+
+	graphics->SetTexture(assetManager->GetTexture("BRDF_LUT"), 3);
+	graphics->SetTexture(assetManager->GetTexture("SM_IrrMap"), 4);
+	graphics->SetTexture(assetManager->GetTexture("SM_SpecMap"), 5);
+	graphics->DeferredCompositionPass();
 
 	/* Draw the Skybox Last */
 	graphics->SetVertexShader(assetManager->GetVertexShader(std::string("SkyboxVS")));

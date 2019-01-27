@@ -23,6 +23,7 @@ public:
 	bool Initialize();
 	bool HandleLowLevelEvents(bool quit);
 	void BeginNewFrame();
+	void BeginDeferredPhase();
 	void EndFrame();
 	void DestroyGraphics();
 
@@ -41,6 +42,7 @@ public:
 	void SetConstantBufferPS(ID3D11Buffer* buffer, void* constantData, size_t size);
 	void DrawMesh(Mesh* mesh);
 	void DrawSkybox(Mesh* unitCube);
+	void DeferredCompositionPass();
 
 	void OnMouseMove(WPARAM buttonState, int x, int y);
 
@@ -66,7 +68,10 @@ private:
 
 	ID3D11RenderTargetView* backBufferRTV;
 	ID3D11DepthStencilView* depthStencilView;
+	ID3D11DepthStencilState* depthWriteOffState;
 	D3D11_VIEWPORT viewport;
+
+	ID3D11ShaderResourceView* blankSRVs[7];
 
 
 	ID3D11SamplerState* sampler;
