@@ -79,7 +79,7 @@ void CalculateRadiance(VertexToPixel input, float3 view, float3 normal, float3 a
 	float3 halfway = normalize(view + light);
 	float distance = length(lightPosition - input.worldPos);
 	float attenuation = 1.0f / (distance * distance);
-	float3 radiance = lightColor * attenuation;
+	float3 radiance = lightColor * attenuation * PI;
 
 	//Cook-Torrance BRDF
 	float3 F = FresnelSchlick(max(dot(halfway, view), 0.0f), F0);
@@ -95,7 +95,7 @@ void CalculateRadiance(VertexToPixel input, float3 view, float3 normal, float3 a
 
 	//Add to outgoing radiance Lo
 	float NdotL = max(dot(normal, light), 0.0f);
-	rad = (((kD * albedo / PI) + specular) * radiance * NdotL);
+	rad = D;
 }
 
 float4 main(VertexToPixel input) : SV_TARGET
@@ -142,7 +142,7 @@ float4 main(VertexToPixel input) : SV_TARGET
 	float2 brdf = BRDFLookup.Sample(BasicSampler, float2(max(dot(input.normal, view), 0.0f), roughness)).rg;
 	float3 specular = prefilteredColor * (kS * brdf.x + brdf.y);
 
-	float3 color = ((kD * diffuse + specular) * ao) + Lo; // Ambient + Lo
+	float3 color = Lo; // Ambient + Lo
 	color = color / (color + float3(1.0f, 1.0f, 1.0f));
 	color = pow(color, float3(0.45454545f, 0.45454545f, 0.45454545f));
 
