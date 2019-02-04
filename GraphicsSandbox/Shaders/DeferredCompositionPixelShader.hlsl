@@ -1,7 +1,17 @@
+static const int NR_LIGHTS = 3;
+
+struct Light
+{
+	float4 position;
+	float4 color;
+};
+
 cbuffer PShaderConstants : register(b0)
 {
 	float3 CameraPosition;
+	Light lights[NR_LIGHTS]; // YOUAREHEREYOUDUMBDIPSHITPIECEOFFUCK
 };
+
 
 struct VertexToPixel
 {
@@ -61,6 +71,33 @@ float3 FresnelSchlickRoughness(float cosTheta, float3 F0, float roughness)   // 
 	return F0 + (max(float3(1.f - roughness, 1.f - roughness, 1.f - roughness), F0) - F0) * pow(1.f - cosTheta, 5.f);
 }
 
+void CalculateRadiance(float3 worldPos, float3 view, float3 normal, float3 albedo, float roughness, float metalness, int l, float3 F0, out float3 rad)
+{
+
+	float3 light = lights[l].position.xyz - worldPos; // Get the base radiance
+	float distance = length(light);
+	light = normalize(light);
+	float3 halfway = normalize(view + light);
+	float attenuation = 1.0f;
+	float3 radiance = lights[l].color.rgb * attenuation;
+
+	//Cook-Torrance BRDF
+	float3 F = FresnelSchlick(max(dot(halfway, view), 0.0f), F0);
+	float D = NormalDistributionGGXTR(normal, halfway, roughness);
+	float G = GeometrySmith(normal, view, light, roughness);
+
+	float denom = 4.0f * max(dot(normal, view), 0.0f) * max(dot(normal, light), 0.0);
+	float3 specular = (D * G * F) / max(denom, .001);
+
+	float3 kD = float3(1.0f, 1.0f, 1.0f) - F; // F = kS
+	kD *= 1.0 - metalness;
+
+
+	//Add to outgoing radiance Lo
+	float NdotL = max(dot(normal, light), 0.0f);
+	rad = (((kD * albedo / PI) + specular) * radiance * NdotL);
+}
+
 float4 main(VertexToPixel input) : SV_TARGET
 {
 	float3 albedo = pow(AlbedoMetalMap.Sample(BasicSampler, input.uv).rgb, 2.2); // Sample any and all textures
@@ -79,8 +116,11 @@ float4 main(VertexToPixel input) : SV_TARGET
 	float3 radiance = float3(0.0f, 0.0f, 0.0f);
 	float3 Lo = float3(0.0f, 0.0f, 0.0f);
 
-	//CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos1.xyz, lightColor1.rgb, F0, radiance);
-	//Lo += radiance;
+	for (int i = 0; i < NR_LIGHTS; i++)
+	{
+		CalculateRadiance(worldPos, view, normal, albedo, roughness, metalness, i, F0, radiance);
+		Lo += radiance;
+	}
 
 	float3 kS = FresnelSchlickRoughness(max(dot(normal, view), 0.f), F0, roughness)*.8f;
 	float3 kD = float3(1.0f, 1.0f, 1.0f) - kS;

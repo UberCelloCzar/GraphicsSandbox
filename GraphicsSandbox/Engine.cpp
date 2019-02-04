@@ -112,11 +112,11 @@ void Engine::GameSetup()
 		snowball->scale = XMFLOAT3(2.f, 2.f, 2.f);
 		XMStoreFloat4(&snowball->rotationQuaternion, XMQuaternionIdentity());
 		snowball->modelKey = "Sphere";
-		snowball->albedoKey = "A_Snow";
-		snowball->normalKey = "N_Snow";
-		snowball->metallicKey = "M_0Metal";
-		snowball->roughnessKey = "R_Snow";
-		snowball->aoKey = "AO_Snow";
+		snowball->albedoKey = "A_Gold";
+		snowball->normalKey = "N_Plain";
+		snowball->metallicKey = "M_100Metal";
+		snowball->roughnessKey = "M_0Metal";
+		snowball->aoKey = "M_100Metal";
 		snowball->vertexShaderConstants = {};
 
 		GameEntity* rock = new GameEntity();
@@ -172,12 +172,12 @@ void Engine::GameSetup()
 	pixelShaderConstants.cameraPosition.x = camera->position.x;
 	pixelShaderConstants.cameraPosition.y = camera->position.y;
 	pixelShaderConstants.cameraPosition.z = camera->position.z;
-	//pixelShaderConstants.lightPos1 = XMFLOAT3A(5.f, 2.f, 15.f);
-	//pixelShaderConstants.lightPos2 = XMFLOAT3A(10.f, 5.f, 3.f);
-	//pixelShaderConstants.lightPos3 = XMFLOAT3A(0.f, 10.f, 7.f);
-	//pixelShaderConstants.lightColor1 = XMFLOAT3A(.95f, .95f, 0.f);
-	//pixelShaderConstants.lightColor2 = XMFLOAT3A(0.f, .95f, .95f);
-	//pixelShaderConstants.lightColor3 = XMFLOAT3A(.95f, 0.f, .95f);
+	pixelShaderConstants.lights[0].position = XMFLOAT3A(5.f, 2.f, 15.f);
+	pixelShaderConstants.lights[1].position = XMFLOAT3A(2.f, 4.f, 2.f);
+	pixelShaderConstants.lights[2].position = XMFLOAT3A(0.f, 10.f, 7.f);
+	pixelShaderConstants.lights[0].color = XMFLOAT3A(.95f, .95f, 0.f);
+	pixelShaderConstants.lights[1].color = XMFLOAT3A(1.f, 0.f, 0.f);
+	pixelShaderConstants.lights[2].color = XMFLOAT3A(.95f, 0.f, .95f);
 	skyboxVShaderConstants.projection = camera->projection;
 	skyboxVShaderConstants.view = camera->view;
 

@@ -54,6 +54,12 @@ struct Vertex
 	}
 };
 
+struct Light
+{
+	XMFLOAT3A position;
+	XMFLOAT3A color;
+};
+
 struct VShaderConstants
 {
 	XMFLOAT4X4 projViewWorld;
@@ -63,12 +69,7 @@ struct VShaderConstants
 struct PShaderConstants
 {
 	XMFLOAT3A cameraPosition;
-	//XMFLOAT3A lightPos1;
-	//XMFLOAT3A lightPos2;
-	//XMFLOAT3A lightPos3;
-	//XMFLOAT3A lightColor1;
-	//XMFLOAT3A lightColor2;
-	//XMFLOAT3A lightColor3;
+	Light lights[3];
 };
 
 
@@ -104,6 +105,7 @@ struct VertexShader
 		inputLayout->Release();
 	}
 };
+
 
 //namespace glm {
 //	namespace detail
