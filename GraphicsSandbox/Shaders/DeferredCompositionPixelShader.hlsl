@@ -78,8 +78,8 @@ void CalculateRadiance(float3 worldPos, float3 view, float3 normal, float3 albed
 	float distance = length(light);
 	light = normalize(light);
 	float3 halfway = normalize(view + light);
-	float attenuation = 1.0f;
-	float3 radiance = lights[l].color.rgb * attenuation;
+	float attenuation = 1.0f / (distance * distance);
+	float3 radiance = lights[l].color.rgb * attenuation * PI *300;
 
 	//Cook-Torrance BRDF
 	float3 F = FresnelSchlick(max(dot(halfway, view), 0.0f), F0);

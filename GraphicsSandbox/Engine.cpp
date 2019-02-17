@@ -114,7 +114,7 @@ void Engine::GameSetup()
 		snowball->modelKey = "Sphere";
 		snowball->albedoKey = "A_Gold";
 		snowball->normalKey = "N_Plain";
-		snowball->metallicKey = "M_100Metal";
+		snowball->metallicKey = "M_0Metal";
 		snowball->roughnessKey = "M_0Metal";
 		snowball->aoKey = "M_100Metal";
 		snowball->vertexShaderConstants = {};
