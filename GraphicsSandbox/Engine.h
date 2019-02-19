@@ -32,6 +32,13 @@ private:
 	ID3D11Buffer* pixelShaderConstantBuffer = nullptr;
 	ID3D11Buffer* skyboxVShaderConstantBuffer = nullptr;
 
+	XMFLOAT4X4 shadowMapProj;
+	XMFLOAT4X4 shadowMapView;
+	XMFLOAT4X4 shadowMapProjView;
+	void CalculateShadowMapProjectionMatrix();
+	void CalculateShadowMapProjViewMatrix();
+	void CalculateShadowMapProjViewWorldMatrix(GameEntity* entity);
+
 	float fov = .25f * PI;
 
 	/* Timing info */

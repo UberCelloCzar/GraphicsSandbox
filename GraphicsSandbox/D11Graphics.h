@@ -23,6 +23,7 @@ public:
 	bool Initialize();
 	bool HandleLowLevelEvents(bool quit);
 	void BeginNewFrame();
+	void BeginShadowPrepass();
 	void EndFrame();
 	void DestroyGraphics();
 
@@ -40,6 +41,7 @@ public:
 	void SetConstantBufferVS(ID3D11Buffer* buffer, void* constantData, size_t size);
 	void SetConstantBufferPS(ID3D11Buffer* buffer, void* constantData, size_t size);
 	void DrawMesh(Mesh* mesh);
+	void DrawShadowedMesh(Mesh* mesh);
 	void DrawSkybox(Mesh* unitCube);
 
 	void OnMouseMove(WPARAM buttonState, int x, int y);
@@ -70,6 +72,14 @@ private:
 	ID3D11RasterizerState* skyRasterState;
 	ID3D11DepthStencilState* skyDepthState;
 	ID3D11RasterizerState* normalRasterState;
+
+	// Shadow Maps
+	ID3D11DepthStencilView* shadowMapDSV;
+	ID3D11ShaderResourceView* shadowMapSRV;
+	ID3D11SamplerState* shadowMapSampler;
+	ID3D11RasterizerState* shadowMapRasterState;
+	D3D11_VIEWPORT shadowMapViewport;
+	ID3D11ShaderResourceView* blankSRV;
 
 	uint16_t windowWidth = DISPLAY_WIDTH;
 	uint16_t windowHeight = DISPLAY_HEIGHT;

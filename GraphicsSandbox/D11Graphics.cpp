@@ -119,9 +119,7 @@ bool D11Graphics::Initialize()
 
 
 	D3D11_SAMPLER_DESC samplerDesc = {}; // Create the sampler
-	samplerDesc.AddressU = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.AddressV = D3D11_TEXTURE_ADDRESS_WRAP;
-	samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
+	samplerDesc.AddressU = samplerDesc.AddressV = samplerDesc.AddressW = D3D11_TEXTURE_ADDRESS_WRAP;
 	samplerDesc.Filter = D3D11_FILTER_ANISOTROPIC;
 	samplerDesc.MaxAnisotropy = 16;
 	samplerDesc.MaxLOD = D3D11_FLOAT32_MAX;
@@ -146,6 +144,69 @@ bool D11Graphics::Initialize()
 	ds.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	device->CreateDepthStencilState(&ds, &skyDepthState);
 
+	/* Shadow Map Stuff */
+	ID3D11Texture2D* shadowMapTexture;
+	D3D11_TEXTURE2D_DESC shadowMapDesc = {};
+	shadowMapDesc.Width = 1024;
+	shadowMapDesc.Height = 768;
+	shadowMapDesc.MipLevels = 1;
+	shadowMapDesc.ArraySize = 1;
+	shadowMapDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	shadowMapDesc.Usage = D3D11_USAGE_DEFAULT;
+	shadowMapDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	shadowMapDesc.CPUAccessFlags = 0;
+	shadowMapDesc.MiscFlags = 0;
+	shadowMapDesc.SampleDesc.Count = 1;
+	shadowMapDesc.SampleDesc.Quality = 0;
+	device->CreateTexture2D(&shadowMapDesc, 0, &shadowMapTexture);
+
+	D3D11_DEPTH_STENCIL_VIEW_DESC smdsDesc = {};
+	smdsDesc.Format = DXGI_FORMAT_D32_FLOAT;
+	smdsDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	smdsDesc.Texture2D.MipSlice = 0;
+	device->CreateDepthStencilView(shadowMapTexture, &smdsDesc, &shadowMapDSV);
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC smsrvDesc = {};
+	smsrvDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	smsrvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	smsrvDesc.Texture2D.MipLevels = 1;
+	smsrvDesc.Texture2D.MostDetailedMip = 0;
+	device->CreateShaderResourceView(shadowMapTexture, &smsrvDesc, &shadowMapSRV);
+
+	shadowMapTexture->Release();
+
+	D3D11_SAMPLER_DESC shadowSampDesc = {};
+	shadowSampDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
+	shadowSampDesc.ComparisonFunc = D3D11_COMPARISON_LESS;
+	shadowSampDesc.AddressU = D3D11_TEXTURE_ADDRESS_BORDER;
+	shadowSampDesc.AddressV = D3D11_TEXTURE_ADDRESS_BORDER;
+	shadowSampDesc.AddressW = D3D11_TEXTURE_ADDRESS_BORDER;
+	shadowSampDesc.BorderColor[0] = 1.0f;
+	shadowSampDesc.BorderColor[1] = 1.0f;
+	shadowSampDesc.BorderColor[2] = 1.0f;
+	shadowSampDesc.BorderColor[3] = 1.0f;
+	device->CreateSamplerState(&shadowSampDesc, &shadowMapSampler);
+
+	rd = {};
+	rd.CullMode = D3D11_CULL_BACK;
+	rd.FillMode = D3D11_FILL_SOLID;
+	rd.DepthClipEnable = true;
+	rd.DepthBias = 1000;
+	rd.DepthBiasClamp = 0.f;
+	rd.SlopeScaledDepthBias = 1.f;
+	device->CreateRasterizerState(&rd, &shadowMapRasterState);
+
+	shadowMapViewport = {}; // Set up the viewport
+	shadowMapViewport.TopLeftX = 0;
+	shadowMapViewport.TopLeftY = 0;
+	shadowMapViewport.Width = (float)shadowMapDesc.Width;
+	shadowMapViewport.Height = (float)shadowMapDesc.Height;
+	shadowMapViewport.MinDepth = 0.0f;
+	shadowMapViewport.MaxDepth = 1.0f;
+
+	context->RSSetViewports(1, &viewport); // Bind the viewport
+
+	blankSRV = nullptr;
 
 	return true;
 }
@@ -175,11 +236,25 @@ void D11Graphics::BeginNewFrame()
 	context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 	context->PSSetSamplers(0, 1, &sampler);
+	context->PSSetSamplers(1, 1, &shadowMapSampler);
+}
+
+void D11Graphics::BeginShadowPrepass()
+{
+	context->RSSetState(shadowMapRasterState);
+	context->OMSetDepthStencilState(0, 0);
+	context->OMSetRenderTargets(0, 0, shadowMapDSV);
+	context->RSSetViewports(1, &shadowMapViewport);
+
+	context->ClearDepthStencilView(shadowMapDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
+
+	context->PSSetShader(0, 0, 0);
 }
 
 void D11Graphics::EndFrame()
 {
 	swapChain->Present(0, 0);
+	context->PSSetShaderResources(8, 1, &blankSRV);
 }
 
 void D11Graphics::DestroyGraphics()
@@ -188,6 +263,11 @@ void D11Graphics::DestroyGraphics()
 	normalRasterState->Release();
 	skyRasterState->Release();
 	skyDepthState->Release();
+
+	shadowMapDSV->Release();
+	shadowMapSRV->Release();
+	shadowMapRasterState->Release();
+	shadowMapSampler->Release();
 
 	if (depthStencilView) { depthStencilView->Release(); }
 	if (backBufferRTV) { backBufferRTV->Release(); }
@@ -434,6 +514,18 @@ void D11Graphics::SetConstantBufferPS(ID3D11Buffer* buffer, void* constantData, 
 
 void D11Graphics::DrawMesh(Mesh* mesh)
 {
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+	context->IASetVertexBuffers(0, 1, &(mesh->vertexBuffer), &stride, &offset);
+
+	context->IASetIndexBuffer(mesh->indexBuffer, DXGI_FORMAT_R32_UINT, 0);
+
+	context->DrawIndexed(mesh->numIndices, 0, 0);
+}
+
+void D11Graphics::DrawShadowedMesh(Mesh* mesh)
+{
+	context->PSSetShaderResources(8, 1, &shadowMapSRV);
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
 	context->IASetVertexBuffers(0, 1, &(mesh->vertexBuffer), &stride, &offset);

@@ -39,6 +39,7 @@ void Engine::GameSetup()
 	assetManager->LoadPixelShader((char*)"BasePS", "BasePixelShader", graphics);
 	assetManager->LoadVertexShader((char*)"SkyboxVS", "SkyboxVertexShader", graphics);
 	assetManager->LoadPixelShader((char*)"SkyboxPS", "SkyboxPixelShader", graphics);
+	assetManager->LoadVertexShader((char*)"ShadowVS", "ShadowVertexShader", graphics);
 
 	/* Initialize Camera */
 	camera = new Camera();
@@ -105,7 +106,7 @@ void Engine::GameSetup()
 
 	GameEntity* snowball = new GameEntity();
 	snowball->position = XMFLOAT3(0.f, 0.f, 5.0f);
-	snowball->scale = XMFLOAT3(2.f, 2.f, 2.f);
+	snowball->scale = XMFLOAT3(1.f, 1.f, 1.f);
 	XMStoreFloat4(&snowball->rotationQuaternion, XMQuaternionIdentity());
 	snowball->modelKey = "Sphere";
 	snowball->albedoKey = "A_Gold";
@@ -115,21 +116,21 @@ void Engine::GameSetup()
 	snowball->aoKey = "M_100Metal";
 	snowball->vertexShaderConstants = {};
 
-	GameEntity* rock = new GameEntity();
-	rock->scale = XMFLOAT3(2.f, 2.f, 2.f);
-	rock->position = XMFLOAT3(5.f, 0.f, 5.0f);
-	XMStoreFloat4(&rock->rotationQuaternion, XMQuaternionIdentity());
-	rock->modelKey = "Sphere";
-	rock->albedoKey = "A_Rock";
-	rock->normalKey = "N_Rock";
-	rock->metallicKey = "M_0Metal";
-	rock->roughnessKey = "R_Rock";
-	rock->aoKey = "AO_Rock";
-	rock->vertexShaderConstants = {};
+	GameEntity* floor = new GameEntity();
+	floor->scale = XMFLOAT3(30.f, .1f, 30.f);
+	floor->position = XMFLOAT3(0.f, -3.f, 0.0f);
+	XMStoreFloat4(&floor->rotationQuaternion, XMQuaternionRotationRollPitchYaw(-XM_PI, 0, 0));
+	floor->modelKey = "Cube";
+	floor->albedoKey = "A_Gold";
+	floor->normalKey = "N_Plain";
+	floor->metallicKey = "M_0Metal";
+	floor->roughnessKey = "R_Gold";
+	floor->aoKey = "M_100Metal";
+	floor->vertexShaderConstants = {};
 
 	GameEntity* block = new GameEntity();
 	block->scale = XMFLOAT3(1.f, 1.f, 1.f);
-	block->position = XMFLOAT3(-5.f, 0.f, 5.0f);
+	block->position = XMFLOAT3(-1.f, 2.f, -1.0f);
 	XMStoreFloat4(&block->rotationQuaternion, XMQuaternionIdentity());
 	block->modelKey = "Cube";
 	block->albedoKey = "A_Gold";
@@ -141,8 +142,8 @@ void Engine::GameSetup()
 
 	GameEntity* cerberus = new GameEntity();
 	cerberus->scale = XMFLOAT3(.1f, .1f, .1f);
-	cerberus->position = XMFLOAT3(-10.f, 0.f, 20.0f);
-	XMStoreFloat4(&cerberus->rotationQuaternion, XMQuaternionIdentity());
+	cerberus->position = XMFLOAT3(-5.f, 6.f, 5.0f);
+	XMStoreFloat4(&cerberus->rotationQuaternion, XMQuaternionRotationRollPitchYaw(-XM_PIDIV2, 0, 0));
 	cerberus->modelKey = "Cerberus";
 	cerberus->albedoKey = "A_Cerberus";
 	cerberus->normalKey = "N_Cerberus";
@@ -153,9 +154,23 @@ void Engine::GameSetup()
 
 	entities.push_back(cube);
 	entities.push_back(snowball);
-	entities.push_back(rock);
+	entities.push_back(floor);
 	entities.push_back(block);
 	entities.push_back(cerberus);
+
+	camera = new Camera();
+	camera->position = XMFLOAT3(0.f, 0.f, -10.f);
+	camera->direction = XMFLOAT3(0.f, 0.f, 1.f);
+	camera->up = XMFLOAT3(0.f, 1.f, 0.f);
+	camera->rotationRads = XMFLOAT2(0.f, 0.f);
+	//camera->rotationMatrix = glm::rotate(glm::rotate(glm::mat4(1.f), -.1f, glm::vec3(1, 0, 0)), .1f, glm::vec3(0,1,0)); // Identity matrix
+	XMStoreFloat4(&camera->rotationQuaternion, XMQuaternionIdentity());
+	CalculateProjectionMatrix();
+	CalculateProjViewMatrix();
+
+	// Create my shadow map matrices
+	CalculateShadowMapProjectionMatrix();
+	CalculateShadowMapProjViewMatrix();
 
 	for (auto& e : entities)
 	{
@@ -167,12 +182,12 @@ void Engine::GameSetup()
 	pixelShaderConstants.cameraPosition.x = camera->position.x;
 	pixelShaderConstants.cameraPosition.y = camera->position.y;
 	pixelShaderConstants.cameraPosition.z = camera->position.z;
-	pixelShaderConstants.lightPos1 = XMFLOAT3A(5.f, 2.f, 15.f);
+	pixelShaderConstants.lightPos1 = XMFLOAT3A(0.f, 15.f, 0.f);
 	pixelShaderConstants.lightPos2 = XMFLOAT3A(2.f, 4.f, 2.f);
 	pixelShaderConstants.lightPos3 = XMFLOAT3A(0.f, 10.f, 7.f);
 	pixelShaderConstants.lightColor1 = XMFLOAT3A(.95f, 0.f, 0.f);
-	pixelShaderConstants.lightColor2 = XMFLOAT3A(.95f, 0.f, 0.f);
-	pixelShaderConstants.lightColor3 = XMFLOAT3A(.95f, 0.f, 0.f);
+	pixelShaderConstants.lightColor2 = XMFLOAT3A(0.f, 0.1f, 0.f);
+	pixelShaderConstants.lightColor3 = XMFLOAT3A(0.f, 0.f, 0.1f);
 	skyboxVShaderConstants.projection = camera->projection;
 	skyboxVShaderConstants.view = camera->view;
 
@@ -180,6 +195,7 @@ void Engine::GameSetup()
 	skyboxVShaderConstants.view = camera->view;
 	pixelShaderConstantBuffer = graphics->CreateConstantBuffer(&pixelShaderConstants, sizeof(PShaderConstants));
 	skyboxVShaderConstantBuffer = graphics->CreateConstantBuffer(&skyboxVShaderConstants, sizeof(SkyboxVShaderConstants));
+
 }
 
 void Engine::Run()
@@ -225,22 +241,54 @@ void Engine::Update()
 	if (GetAsyncKeyState('Q') & 0x8000) vert -= 5 * deltaTime;
 	if (GetAsyncKeyState('E') & 0x8000) vert += 5 * deltaTime;
 	if (forward != 0 || right != 0 || vert != 0) camera->Move(forward, right, vert);
+
+	right = 0;
+	forward = 0;
+	vert = 0;
+	if (GetAsyncKeyState('H') & 0x8000) right -= 5 * deltaTime;
+	if (GetAsyncKeyState('K') & 0x8000) right += 5 * deltaTime;
+	if (GetAsyncKeyState('U') & 0x8000) forward += 5 * deltaTime;
+	if (GetAsyncKeyState('J') & 0x8000) forward -= 5 * deltaTime;
+	if (GetAsyncKeyState('Y') & 0x8000) vert -= 5 * deltaTime;
+	if (GetAsyncKeyState('I') & 0x8000) vert += 5 * deltaTime;
+
+	XMVECTOR total = XMVectorScale(XMVectorSet(1.f,-.5f,1.f,0.f), forward); // Add in the direction faced
+	total = XMVectorAdd(total, XMVectorScale(XMVector3Cross(XMVectorSet(.5f,2.f,.5f,0.f), XMVectorSet(1.f, -.5f, 1.f, 0.f)), right)); // Calculate the right vector then scale it and add it
+	XMStoreFloat3(&pixelShaderConstants.lightPos1, XMVectorAdd(XMLoadFloat3(&pixelShaderConstants.lightPos1), total));
+	pixelShaderConstants.lightPos1.y += vert;
 }
 
 void Engine::Draw()
 {
-	graphics->BeginNewFrame();
-
 	CalculateProjViewMatrix();
+	CalculateShadowMapProjectionMatrix();
+	CalculateShadowMapProjViewMatrix();
+	graphics->SetVertexShader(assetManager->GetVertexShader(std::string("ShadowVS")));
+	graphics->BeginShadowPrepass();
+
+	for (size_t i = 1; i < entities.size(); ++i)
+	{
+		CalculateProjViewWorldMatrix(entities[i]); // Update the main matrix in the vertex shader constants area of the entity
+		CalculateShadowMapProjViewWorldMatrix(entities[i]);
+
+		graphics->SetConstantBufferVS(entities[i]->vertexShaderConstantBuffer, &(entities[i]->vertexShaderConstants), sizeof(VShaderConstants));
+
+		Model* model = assetManager->GetModel(entities[i]->modelKey);
+
+		for (size_t j = 0; j < model->meshes.size(); ++j)
+		{
+			graphics->DrawMesh(model->meshes[j]); // If we have a bunch of the same object and we have time, I can add a render for instancing
+		}
+	}
+
 	graphics->SetVertexShader(assetManager->GetVertexShader(std::string("BaseVS")));
 	graphics->SetPixelShader(assetManager->GetPixelShader(std::string("BasePS")));
 	pixelShaderConstants.cameraPosition.x = camera->position.x;
 	pixelShaderConstants.cameraPosition.y = camera->position.y;
 	pixelShaderConstants.cameraPosition.z = camera->position.z;
+	graphics->BeginNewFrame();
 	for (size_t i = 1; i < entities.size(); ++i)
 	{
-		CalculateProjViewWorldMatrix(entities[i]); // Update the main matrix in the vertex shader constants area of the entity
-
 		graphics->SetConstantBufferVS(entities[i]->vertexShaderConstantBuffer, &(entities[i]->vertexShaderConstants), sizeof(VShaderConstants));
 		graphics->SetConstantBufferPS(pixelShaderConstantBuffer, &pixelShaderConstants, sizeof(PShaderConstants));
 		graphics->SetTexture(assetManager->GetTexture(entities[i]->albedoKey), 0);
@@ -256,7 +304,7 @@ void Engine::Draw()
 
 		for (size_t j = 0; j < model->meshes.size(); ++j)
 		{
-			graphics->DrawMesh(model->meshes[j]); // If we have a bunch of the same object and we have time, I can add a render for instancing
+			graphics->DrawShadowedMesh(model->meshes[j]); // If we have a bunch of the same object and we have time, I can add a render for instancing
 		}
 	}
 
@@ -309,4 +357,23 @@ void Engine::CalculateProjViewWorldMatrix(GameEntity* entity)
 	XMMATRIX world = XMMatrixTranspose(XMMatrixScaling(entity->scale.x, entity->scale.y, entity->scale.z) * XMMatrixRotationQuaternion(XMLoadFloat4(&entity->rotationQuaternion)) * XMMatrixTranslation(entity->position.x, entity->position.y, entity->position.z));
 	XMStoreFloat4x4(&entity->vertexShaderConstants.world, world);
 	XMStoreFloat4x4(&entity->vertexShaderConstants.projViewWorld, XMLoadFloat4x4(&camera->projView) * world); // This result is already transpose, as the individual matrices are transpose and the mult order is reversed
+}
+
+void Engine::CalculateShadowMapProjectionMatrix()
+{
+	XMStoreFloat4x4(&shadowMapProj, XMMatrixTranspose(XMMatrixOrthographicLH(80.0f, 45.0f, 0.1f, 100.0f))); // Update with new w/h
+}
+
+void Engine::CalculateShadowMapProjViewMatrix()
+{
+	XMMATRIX view = XMMatrixTranspose(XMMatrixLookAtLH(XMLoadFloat3(&pixelShaderConstants.lightPos1), XMVectorSet(0.f, 0.f, 0.5f, 0.f), XMVectorSet(1.f, 0.f, 0.f, 0.f)));
+	XMStoreFloat4x4(&shadowMapView, view);
+	XMStoreFloat4x4(&shadowMapProjView, XMLoadFloat4x4(&shadowMapProj) * view);
+}
+
+void Engine::CalculateShadowMapProjViewWorldMatrix(GameEntity* entity)
+{
+	XMMATRIX world = XMMatrixTranspose(XMMatrixScaling(entity->scale.x, entity->scale.y, entity->scale.z) * XMMatrixRotationQuaternion(XMLoadFloat4(&entity->rotationQuaternion)) * XMMatrixTranslation(entity->position.x, entity->position.y, entity->position.z));
+	//XMStoreFloat4x4(&entity->vertexShaderConstants.world, world);
+	XMStoreFloat4x4(&entity->vertexShaderConstants.shadowProjViewWorld, XMLoadFloat4x4(&shadowMapProjView) * world); // This result is already transpose, as the individual matrices are transpose and the mult order is reversed
 }

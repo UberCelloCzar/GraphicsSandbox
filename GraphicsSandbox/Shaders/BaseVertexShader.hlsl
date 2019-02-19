@@ -2,6 +2,7 @@ cbuffer VShaderConstants : register(b0)
 {
 	column_major matrix projViewWorld;
 	column_major matrix world;
+	column_major matrix shadowProjViewWorld;
 };
 
 struct VertexShaderInput
@@ -18,7 +19,8 @@ struct VertexToPixel
 	float2 uv			: TEXCOORD;
 	float3 normal		: NORMAL;
 	float3 tangent		: TANGENT;
-	float3 worldPos		: POSITION;
+	float3 worldPos		: POSITION0;
+	float4 shadowMapPos : POSITION1;
 };
 
 VertexToPixel main(VertexShaderInput input)
@@ -31,6 +33,7 @@ VertexToPixel main(VertexShaderInput input)
 	output.normal = normalize(mul(input.normal, (float3x3)world));
 	output.tangent = normalize(mul(input.tangent, (float3x3)world));
 	output.worldPos = mul(float4(input.position, 1.f), world).xyz;
+	output.shadowMapPos = mul(float4(input.position, 1.f), shadowProjViewWorld);
 
 	return output;
 }

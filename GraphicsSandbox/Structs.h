@@ -58,6 +58,7 @@ struct VShaderConstants
 {
 	XMFLOAT4X4 projViewWorld;
 	XMFLOAT4X4 world;
+	XMFLOAT4X4 shadowProjViewWorld;
 };
 
 struct PShaderConstants
@@ -69,7 +70,7 @@ struct PShaderConstants
 	XMFLOAT3A lightColor1;
 	XMFLOAT3A lightColor2;
 	XMFLOAT3A lightColor3;
-}; // TODO: Check how to handle padding
+};
 
 
 struct SkyboxVShaderConstants

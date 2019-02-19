@@ -15,7 +15,8 @@ struct VertexToPixel
 	float2 uv			: TEXCOORD;
 	float3 normal		: NORMAL;
 	float3 tangent		: TANGENT;
-	float3 worldPos		: POSITION;
+	float3 worldPos		: POSITION0;
+	float4 shadowMapPos : POSITION1;
 };
 
 Texture2D AlbedoMap     	 : register(t0);
@@ -26,8 +27,10 @@ Texture2D AOMap              : register(t4);
 Texture2D BRDFLookup		 : register(t5);
 TextureCube EnvIrradianceMap : register(t6);
 TextureCube EnvPrefilterMap	 : register(t7);
+Texture2D ShadowMap          : register(t8);
 
 SamplerState BasicSampler	: register(s0);
+SamplerComparisonState ShadowSampler : register(s1);
 
 static const float PI = 3.14159265359;
 static const float MAX_REF_LOD = 4.0f;
@@ -79,7 +82,7 @@ void CalculateRadiance(VertexToPixel input, float3 view, float3 normal, float3 a
 	float3 halfway = normalize(view + light);
 	float distance = length(lightPosition - input.worldPos);
 	float attenuation = 1.0f / (distance * distance);
-	float3 radiance = lightColor * attenuation * PI;
+	float3 radiance = lightColor * attenuation * 500.f;
 
 	//Cook-Torrance BRDF
 	float3 F = FresnelSchlick(max(dot(halfway, view), 0.0f), F0);
@@ -95,7 +98,7 @@ void CalculateRadiance(VertexToPixel input, float3 view, float3 normal, float3 a
 
 	//Add to outgoing radiance Lo
 	float NdotL = max(dot(normal, light), 0.0f);
-	rad = D;
+	rad = (((kD * albedo / PI) + specular) * radiance * NdotL);
 }
 
 float4 main(VertexToPixel input) : SV_TARGET
@@ -124,14 +127,20 @@ float4 main(VertexToPixel input) : SV_TARGET
 	float3 radiance = float3(0.0f, 0.0f, 0.0f);
 	float3 Lo = float3(0.0f, 0.0f, 0.0f);
 
-	CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos1.xyz, lightColor1.rgb, F0, radiance);
-	Lo += radiance;
+	float2 shadowUV = input.shadowMapPos.xy / input.shadowMapPos.w * 0.5f + 0.5f; // Unpack shadow UV from position, be sure to shift to 0-1
+	shadowUV.y = 1.0f - shadowUV.y; // Invert v
+	float depth = input.shadowMapPos.z / input.shadowMapPos.w;
 
-	CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos2.xyz, lightColor2.rgb, F0, radiance);
-	Lo += radiance;
+	float shadowAmount = ShadowMap.SampleCmpLevelZero(ShadowSampler, shadowUV, depth);
 
-	CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos3.xyz, lightColor3.rgb, F0, radiance);
-	Lo += radiance;
+	CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos1.xyz, lightColor1.rgb, F0, radiance); // First light casts shadow
+	Lo += radiance * shadowAmount;
+
+	//CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos2.xyz, lightColor2.rgb, F0, radiance);
+	//Lo += radiance;
+
+	//CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos3.xyz, lightColor3.rgb, F0, radiance);
+	//Lo += radiance;
 
 	float3 kS = FresnelSchlickRoughness(max(dot(input.normal, view), 0.f), F0, roughness)*.8f;
 	float3 kD = float3(1.0f, 1.0f, 1.0f) - kS;
@@ -142,7 +151,7 @@ float4 main(VertexToPixel input) : SV_TARGET
 	float2 brdf = BRDFLookup.Sample(BasicSampler, float2(max(dot(input.normal, view), 0.0f), roughness)).rg;
 	float3 specular = prefilteredColor * (kS * brdf.x + brdf.y);
 
-	float3 color = Lo; // Ambient + Lo
+	float3 color = ((kD * diffuse + specular) * ao) + Lo; // Ambient + Lo
 	color = color / (color + float3(1.0f, 1.0f, 1.0f));
 	color = pow(color, float3(0.45454545f, 0.45454545f, 0.45454545f));
 
