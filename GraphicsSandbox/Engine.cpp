@@ -158,16 +158,6 @@ void Engine::GameSetup()
 	entities.push_back(block);
 	entities.push_back(cerberus);
 
-	camera = new Camera();
-	camera->position = XMFLOAT3(0.f, 0.f, -10.f);
-	camera->direction = XMFLOAT3(0.f, 0.f, 1.f);
-	camera->up = XMFLOAT3(0.f, 1.f, 0.f);
-	camera->rotationRads = XMFLOAT2(0.f, 0.f);
-	//camera->rotationMatrix = glm::rotate(glm::rotate(glm::mat4(1.f), -.1f, glm::vec3(1, 0, 0)), .1f, glm::vec3(0,1,0)); // Identity matrix
-	XMStoreFloat4(&camera->rotationQuaternion, XMQuaternionIdentity());
-	CalculateProjectionMatrix();
-	CalculateProjViewMatrix();
-
 	// Create my shadow map matrices
 	CalculateShadowMapProjectionMatrix();
 	CalculateShadowMapProjViewMatrix();
