@@ -146,7 +146,57 @@ bool D11Graphics::Initialize()
 	ds.DepthFunc = D3D11_COMPARISON_LESS_EQUAL;
 	device->CreateDepthStencilState(&ds, &skyDepthState);
 
+	ds.DepthEnable = false; // Depth stencil state for not overwriting the whole buffer with a fillscreen pass
+	ds.DepthWriteMask = D3D11_DEPTH_WRITE_MASK_ZERO;
+	device->CreateDepthStencilState(&ds, &depthWriteOffState);
 
+	ID3D11Texture2D* texture;
+
+	D3D11_TEXTURE2D_DESC textureDesc = {}; // Standard fare RTVs, just set up the textures, then make the rtv and srv, and throw away the ref to the texture
+	textureDesc.Width = windowWidth;
+	textureDesc.Height = windowHeight;
+	textureDesc.MipLevels = 1;
+	textureDesc.ArraySize = 1;
+	textureDesc.Format = DXGI_FORMAT_R16G16B16A16_FLOAT;
+	textureDesc.SampleDesc.Count = 1;
+	textureDesc.Usage = D3D11_USAGE_DEFAULT;
+	textureDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	textureDesc.CPUAccessFlags = 0;
+	textureDesc.MiscFlags = 0;
+
+	D3D11_RENDER_TARGET_VIEW_DESC rtvDesc = {};
+	rtvDesc.Format = textureDesc.Format;
+	rtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	rtvDesc.Texture2D.MipSlice = 0;
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+	srvDesc.Format = textureDesc.Format;
+	srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	srvDesc.Texture2D.MostDetailedMip = 0;
+	srvDesc.Texture2D.MipLevels = 1;
+
+	device->CreateTexture2D(&textureDesc, NULL, &texture);
+	device->CreateRenderTargetView(texture, &rtvDesc, &sceneAndBloomRTVs[1]);
+	device->CreateShaderResourceView(texture, &srvDesc, &bloomSRV);
+	texture->Release();
+
+	device->CreateTexture2D(&textureDesc, NULL, &texture);
+	device->CreateRenderTargetView(texture, &rtvDesc, &sceneAndBloomRTVs[0]);
+	device->CreateShaderResourceView(texture, &srvDesc, &sceneSRV);
+	texture->Release();
+
+	device->CreateTexture2D(&textureDesc, NULL, &texture);
+	device->CreateRenderTargetView(texture, &rtvDesc, &bloomPongRTV);
+	device->CreateShaderResourceView(texture, &srvDesc, &bloomPongSRV);
+	texture->Release();
+
+	float invAspectRatio = viewport.Height / viewport.Width;
+	blurPixelShaderConstantBuffer = CreateConstantBuffer(&invAspectRatio, sizeof(PShaderConstants));
+
+	for (int i = 0; i < 7; i++)
+	{
+		blankSRVs[i] = nullptr;
+	}
 	return true;
 }
 
@@ -167,19 +217,82 @@ void D11Graphics::BeginNewFrame()
 {
 	context->RSSetState(normalRasterState);
 	context->OMSetDepthStencilState(0, 0);
-	context->OMSetRenderTargets(1, &backBufferRTV, depthStencilView);
+	context->OMSetRenderTargets(2, sceneAndBloomRTVs, depthStencilView);
 	context->RSSetViewports(1, &viewport);
 
-	const float color[4] = { 0,1,1,0 };
-	context->ClearRenderTargetView(backBufferRTV, color); // Will remove this once skyboxes work
+	const float color[4] = { 0,0,0,0 };
+	context->ClearRenderTargetView(sceneAndBloomRTVs[0], color);
+	context->ClearRenderTargetView(sceneAndBloomRTVs[1], color);
 	context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 	context->PSSetSamplers(0, 1, &sampler);
 }
 
+void D11Graphics::PerformBloomBlurPass(ID3D11PixelShader* verticalBlurShader, ID3D11PixelShader* horizontalBlurShader)
+{
+	context->RSSetState(normalRasterState);
+	context->OMSetDepthStencilState(depthWriteOffState, 0);
+	context->OMSetRenderTargets(1, &bloomPongRTV, depthStencilView);
+	context->RSSetViewports(1, &viewport);
+
+	const float color[4] = { 0,0,0,0 };
+	context->ClearRenderTargetView(bloomPongRTV, color);
+	context->PSSetSamplers(0, 1, &sampler);
+
+	/* Vertical Pass */
+	context->PSSetShader(verticalBlurShader, 0, 0);
+	context->PSSetShaderResources(0, 1, &bloomSRV);
+
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+	ID3D11Buffer* blank = 0;
+	context->IASetVertexBuffers(0, 1, &blank, &stride, &offset);
+	context->IASetIndexBuffer(0, DXGI_FORMAT_R32_UINT, 0);
+
+	context->Draw(3, 0); // Draw one heckin big triangle
+	context->PSSetShaderResources(0, 7, blankSRVs); // Clear set resources so they can be used again
+
+	/* Horizontal Pass */
+	context->OMSetRenderTargets(1, &sceneAndBloomRTVs[1], depthStencilView);
+	context->ClearRenderTargetView(sceneAndBloomRTVs[1], color);
+	context->PSSetSamplers(0, 1, &sampler);
+
+	context->PSSetShader(horizontalBlurShader, 0, 0);
+	context->PSSetShaderResources(0, 1, &bloomPongSRV);
+	context->PSSetConstantBuffers(0, 1, &blurPixelShaderConstantBuffer);
+
+	context->IASetVertexBuffers(0, 1, &blank, &stride, &offset);
+	context->IASetIndexBuffer(0, DXGI_FORMAT_R32_UINT, 0);
+	context->Draw(3, 0); // Draw one heckin big triangle
+	context->PSSetShaderResources(0, 7, blankSRVs); // Clear set resources so they can be used again
+}
+
+void D11Graphics::PerformFinalCombine()
+{
+	context->OMSetRenderTargets(1, &backBufferRTV, depthStencilView);
+	context->RSSetState(normalRasterState);
+	context->OMSetDepthStencilState(depthWriteOffState, 0);
+	context->RSSetViewports(1, &viewport);
+
+	const float color[4] = { 0,0,0,0 };
+	context->ClearRenderTargetView(backBufferRTV, color);
+	context->PSSetSamplers(0, 1, &sampler);
+	context->PSSetShaderResources(0, 1, &sceneSRV);
+	context->PSSetShaderResources(1, 1, &bloomSRV);
+
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+	ID3D11Buffer* blank = 0;
+	context->IASetVertexBuffers(0, 1, &blank, &stride, &offset);
+	context->IASetIndexBuffer(0, DXGI_FORMAT_R32_UINT, 0);
+
+	context->Draw(3, 0); // Draw one heckin big triangle
+}
+
 void D11Graphics::EndFrame()
 {
 	swapChain->Present(0, 0);
+	context->PSSetShaderResources(0, 7, blankSRVs); // Clear set resources so they can be used again
 }
 
 void D11Graphics::DestroyGraphics()
@@ -188,6 +301,14 @@ void D11Graphics::DestroyGraphics()
 	normalRasterState->Release();
 	skyRasterState->Release();
 	skyDepthState->Release();
+	sceneAndBloomRTVs[0]->Release();
+	sceneAndBloomRTVs[1]->Release();
+	bloomSRV->Release();
+	sceneSRV->Release();
+	bloomPongRTV->Release();
+	bloomPongSRV->Release();
+	depthWriteOffState->Release();
+	blurPixelShaderConstantBuffer->Release();
 
 	if (depthStencilView) { depthStencilView->Release(); }
 	if (backBufferRTV) { backBufferRTV->Release(); }
@@ -607,6 +728,9 @@ void D11Graphics::Resize()
 	viewport.MinDepth = 0.0f;
 	viewport.MaxDepth = 1.0f;
 	context->RSSetViewports(1, &viewport);
+
+	float invAspectRatio = viewport.Height / viewport.Width;
+	context->UpdateSubresource(blurPixelShaderConstantBuffer, 0, 0, &invAspectRatio, 0, 0);
 }
 
 void D11Graphics::OnMouseMove(WPARAM buttonState, int x, int y)

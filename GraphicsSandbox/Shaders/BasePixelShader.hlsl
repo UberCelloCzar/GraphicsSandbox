@@ -9,6 +9,12 @@ cbuffer PShaderConstants : register(b0)
 	float3 lightColor3;
 };
 
+struct PSOutput
+{
+	float4 scene : SV_TARGET0;
+	float4 bloom : SV_TARGET1; // Texture for bloom cutoff with blur
+};
+
 struct VertexToPixel
 {
 	float4 position		: SV_POSITION;
@@ -79,7 +85,7 @@ void CalculateRadiance(VertexToPixel input, float3 view, float3 normal, float3 a
 	float3 halfway = normalize(view + light);
 	float distance = length(lightPosition - input.worldPos);
 	float attenuation = 1.0f / (distance * distance);
-	float3 radiance = lightColor * attenuation;
+	float3 radiance = lightColor * attenuation * 200.0f;
 
 	//Cook-Torrance BRDF
 	float3 F = FresnelSchlick(max(dot(halfway, view), 0.0f), F0);
@@ -98,8 +104,9 @@ void CalculateRadiance(VertexToPixel input, float3 view, float3 normal, float3 a
 	rad = (((kD * albedo / PI) + specular) * radiance * NdotL);
 }
 
-float4 main(VertexToPixel input) : SV_TARGET
+PSOutput main(VertexToPixel input)
 {
+	PSOutput output;
 	float3 albedo = pow(AlbedoMap.Sample(BasicSampler, input.uv).rgb, 2.2); // Sample any and all textures
 	float metalness = MetallicMap.Sample(BasicSampler, input.uv).r; // Metallic
 	float roughness = RoughnessMap.Sample(BasicSampler, input.uv).r; // Rough
@@ -143,8 +150,17 @@ float4 main(VertexToPixel input) : SV_TARGET
 	float3 specular = prefilteredColor * (kS * brdf.x + brdf.y);
 
 	float3 color = ((kD * diffuse + specular) * ao) + Lo; // Ambient + Lo
-	color = color / (color + float3(1.0f, 1.0f, 1.0f));
-	color = pow(color, float3(0.45454545f, 0.45454545f, 0.45454545f));
 
-	return float4(color, 1.0f);
+	output.scene = float4(color, 1.0f);
+
+	if (color.r > .7f || color.g > .7f || color.b > .7f) // Light cutoff, fix when hdr is added
+	{
+		output.bloom = output.scene;
+	}
+	else
+	{
+		output.bloom = float4(0.0f, 0.0f, 0.0f, 1.0f);
+	}
+
+	return output;
 }

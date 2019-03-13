@@ -24,6 +24,8 @@ public:
 	bool HandleLowLevelEvents(bool quit);
 	void BeginNewFrame();
 	void EndFrame();
+	void PerformBloomBlurPass(ID3D11PixelShader* verticalBlurShader, ID3D11PixelShader* horizontalBlurShader);
+	void PerformFinalCombine();
 	void DestroyGraphics();
 
 	ID3D11Buffer* CreateVertexBuffer(Vertex* vertices, uint32_t numVerts);
@@ -61,8 +63,18 @@ private:
 	ID3D11Device*			device;
 	ID3D11DeviceContext*	context;
 
+	ID3D11RenderTargetView* sceneAndBloomRTVs[2];
+	ID3D11RenderTargetView* bloomPongRTV;
+	ID3D11ShaderResourceView* bloomSRV; // Ping and pong textures
+	ID3D11ShaderResourceView* bloomPongSRV;
+	ID3D11ShaderResourceView* sceneSRV;
+	ID3D11Buffer* blurPixelShaderConstantBuffer = nullptr;
+
+	ID3D11ShaderResourceView* blankSRVs[7];
+
 	ID3D11RenderTargetView* backBufferRTV;
 	ID3D11DepthStencilView* depthStencilView;
+	ID3D11DepthStencilState* depthWriteOffState;
 	D3D11_VIEWPORT viewport;
 
 

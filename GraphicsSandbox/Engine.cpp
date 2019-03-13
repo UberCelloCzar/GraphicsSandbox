@@ -39,6 +39,10 @@ void Engine::GameSetup()
 	assetManager->LoadPixelShader((char*)"BasePS", "BasePixelShader", graphics);
 	assetManager->LoadVertexShader((char*)"SkyboxVS", "SkyboxVertexShader", graphics);
 	assetManager->LoadPixelShader((char*)"SkyboxPS", "SkyboxPixelShader", graphics);
+	assetManager->LoadVertexShader((char*)"FillscreenVS", "FillscreenVertexShader", graphics);
+	assetManager->LoadPixelShader((char*)"GaussHoriPS", "GaussianBlurHorizontalPixelShader", graphics);
+	assetManager->LoadPixelShader((char*)"GaussVertPS", "GaussianBlurVerticalPixelShader", graphics);
+	assetManager->LoadPixelShader((char*)"CombinePS", "FinalCombinePixelShader", graphics);
 
 	/* Initialize Camera */
 	camera = new Camera();
@@ -272,6 +276,18 @@ void Engine::Draw()
 
 	Model* model = assetManager->GetModel(entities[0]->modelKey);
 	graphics->DrawSkybox(model->meshes[0]);
+
+	/* Blur the bloom buffer */
+	graphics->SetVertexShader(assetManager->GetVertexShader("FillscreenVS"));
+	graphics->PerformBloomBlurPass(assetManager->GetPixelShader("GaussVertPS"), assetManager->GetPixelShader("GaussHoriPS"));
+	graphics->PerformBloomBlurPass(assetManager->GetPixelShader("GaussVertPS"), assetManager->GetPixelShader("GaussHoriPS"));
+	graphics->PerformBloomBlurPass(assetManager->GetPixelShader("GaussVertPS"), assetManager->GetPixelShader("GaussHoriPS"));
+	//graphics->PerformBloomBlurPass(assetManager->GetPixelShader("GaussVertPS"), assetManager->GetPixelShader("GaussHoriPS"));
+	//graphics->PerformBloomBlurPass(assetManager->GetPixelShader("GaussVertPS"), assetManager->GetPixelShader("GaussHoriPS"));
+
+	/* Blend the scene and the bloom */
+	graphics->SetPixelShader(assetManager->GetPixelShader("CombinePS"));
+	graphics->PerformFinalCombine();
 
 	graphics->EndFrame();
 }
