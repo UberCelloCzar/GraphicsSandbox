@@ -54,6 +54,7 @@ void Engine::GameSetup()
 	/* Load Models */
 	assetManager->LoadModel((char*)"Cube", "cube.obj", graphics);
 	assetManager->LoadModel((char*)"Cone", "cone.obj", graphics);
+	assetManager->LoadModel((char*)"Cylinder", "cylinder.obj", graphics);
 	assetManager->LoadModel((char*)"Sphere", "sphere.obj", graphics);
 	assetManager->LoadModel((char*)"Cerberus", "Cerberus.fbx", graphics);
 
@@ -139,6 +140,18 @@ void Engine::GameSetup()
 	block->aoKey = "M_100Metal";
 	block->vertexShaderConstants = {};
 
+	GameEntity* tube = new GameEntity();
+	tube->scale = XMFLOAT3(2.f, 5.f, 2.f);
+	tube->position = XMFLOAT3(5.f, 2.f, 15.f);
+	XMStoreFloat4(&tube->rotationQuaternion, XMQuaternionRotationRollPitchYaw(PI/2.f,0.f,0.f));
+	tube->modelKey = "Cylinder";
+	tube->albedoKey = "A_Gold";
+	tube->normalKey = "N_Plain";
+	tube->metallicKey = "M_0Metal";
+	tube->roughnessKey = "M_100Metal";
+	tube->aoKey = "M_100Metal";
+	tube->vertexShaderConstants = {};
+
 	GameEntity* cerberus = new GameEntity();
 	cerberus->scale = XMFLOAT3(.1f, .1f, .1f);
 	cerberus->position = XMFLOAT3(-10.f, 0.f, 20.0f);
@@ -155,6 +168,7 @@ void Engine::GameSetup()
 	entities.push_back(snowball);
 	entities.push_back(rock);
 	entities.push_back(block);
+	entities.push_back(tube);
 	entities.push_back(cerberus);
 
 	for (auto& e : entities)
@@ -173,6 +187,8 @@ void Engine::GameSetup()
 	pixelShaderConstants.lightColor1 = XMFLOAT3A(.95f, .95f, 0.f);
 	pixelShaderConstants.lightColor2 = XMFLOAT3A(0.f, .95f, .95f);
 	pixelShaderConstants.lightColor3 = XMFLOAT3A(.95f, 0.f, .95f);
+	pixelShaderConstants.tubeStart1 = XMFLOAT3A(5.f, 2.f, 10.f);
+	pixelShaderConstants.tubeEnd1 = XMFLOAT4(5.f, 2.f, 20.f, 1.f);
 	skyboxVShaderConstants.projection = camera->projection;
 	skyboxVShaderConstants.view = camera->view;
 
