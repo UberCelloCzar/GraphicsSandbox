@@ -69,7 +69,9 @@ struct PShaderConstants
 	XMFLOAT3A lightColor1;
 	XMFLOAT3A lightColor2;
 	XMFLOAT3A lightColor3;
-}; // TODO: Check how to handle padding
+	XMFLOAT3A tubeStart1;
+	XMFLOAT4  tubeEnd1; // 4th element is radius
+};
 
 
 struct SkyboxVShaderConstants

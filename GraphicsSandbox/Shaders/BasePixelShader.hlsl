@@ -7,6 +7,8 @@ cbuffer PShaderConstants : register(b0)
 	float3 lightColor1;
 	float3 lightColor2;
 	float3 lightColor3;
+	float3 tubeStart1;
+	float4 tubeEnd1; // Radius is w element
 };
 
 struct PSOutput
@@ -104,6 +106,51 @@ void CalculateRadiance(VertexToPixel input, float3 view, float3 normal, float3 a
 	rad = (((kD * albedo / PI) + specular) * radiance * NdotL);
 }
 
+void CalculateRadianceTubeLight(VertexToPixel input, float3 view, float3 normal, float3 albedo, float roughness, float metalness, float3 lightPosition, float3 lightColor, float3 F0, float3 reflection, float3 tubeStart, float3 tubeEnd, float tubeRadius, out float3 rad)
+{
+	float3 L0 = tubeStart - input.worldPos; // To start of tube line
+	float3 L1 = tubeEnd - input.worldPos; // To end of tube line
+	float distL0 = length(L0);
+	float distL1 = length(L1);
+
+	float NdotL0 = dot(L0, normal) / (2.0f * distL0);
+	float NdotL1 = dot(L1, normal) / (2.0f * distL1);
+	float NdotL = (2.0 * clamp(NdotL0 + NdotL1, 0.0, 1.0)) / (distL0 * distL1 + dot(L0, L1) + 2.0); // Combine the vectors to the ends to get this one
+
+	float3 Lc = L1 - L0; // Combined light line
+	float RdotL0 = dot(reflection, L0);
+	float RdotLc = dot(reflection, Lc);
+	float L0dotLc = dot(L0, Lc);
+	float distLc = length(Lc);
+	float t = (RdotL0 * RdotLc - L0dotLc) / (distLc * distLc - RdotLc * RdotLc);
+
+	float3 closestPoint = L0 + Lc * clamp(t, 0.0, 1.0);
+	float3 centerToRay = dot(closestPoint, reflection) * reflection - closestPoint;
+	closestPoint = closestPoint + centerToRay * clamp(tubeRadius / length(centerToRay), 0.0, 1.0);
+	float3 light = normalize(closestPoint);
+	float3 halfway = normalize(view + light);
+	float distance = length(closestPoint);
+	float attenuation = 1.0f / (distance * distance);
+	float3 radiance = lightColor * attenuation * 150.0f;
+
+	//float alpha = roughness * roughness;
+	//float alphaPrime = clamp(tubeRad / (distLight * 2.0) + alpha, 0.0, 1.0);
+	//Cook-Torrance BRDF
+	float3 F = FresnelSchlick(max(dot(halfway, view), 0.0f), F0);
+	float D = NormalDistributionGGXTR(normal, halfway, roughness);
+	float G = GeometrySmith(normal, view, light, roughness);
+
+	float denom = 4.0f * max(dot(normal, view), 0.0f) * max(dot(normal, light), 0.0);
+	float3 specular = (D * G * F) / max(denom, .001);
+
+	float3 kD = float3(1.0f, 1.0f, 1.0f) - F; // F = kS
+	kD *= 1.0 - metalness;
+
+
+	//Add to outgoing radiance Lo
+	rad = (((kD * albedo / PI) + specular) * radiance * NdotL);
+}
+
 PSOutput main(VertexToPixel input)
 {
 	PSOutput output;
@@ -131,7 +178,7 @@ PSOutput main(VertexToPixel input)
 	float3 radiance = float3(0.0f, 0.0f, 0.0f);
 	float3 Lo = float3(0.0f, 0.0f, 0.0f);
 
-	CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos1.xyz, lightColor1.rgb, F0, radiance);
+	CalculateRadianceTubeLight(input, view, input.normal, albedo, roughness, metalness, lightPos1.xyz, lightColor1.rgb, F0, reflection, tubeStart1.xyz, tubeEnd1.xyz, tubeEnd1.w, radiance); // Radius is stored in the 4th component of the start
 	Lo += radiance;
 
 	CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos2.xyz, lightColor2.rgb, F0, radiance);
