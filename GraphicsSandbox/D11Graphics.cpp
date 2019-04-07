@@ -187,6 +187,36 @@ bool D11Graphics::Initialize()
 	shadowSampDesc.BorderColor[3] = 1.0f;
 	device->CreateSamplerState(&shadowSampDesc, &shadowMapSampler);
 
+	ID3D11Texture2D* vsmTexture;
+	D3D11_TEXTURE2D_DESC vsmDesc = {};
+	vsmDesc.Width = 1024;
+	vsmDesc.Height = 768;
+	vsmDesc.MipLevels = 1;
+	vsmDesc.ArraySize = 1;
+	vsmDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	vsmDesc.Usage = D3D11_USAGE_DEFAULT;
+	vsmDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
+	vsmDesc.CPUAccessFlags = 0;
+	vsmDesc.MiscFlags = 0;
+	vsmDesc.SampleDesc.Count = 1;
+	vsmDesc.SampleDesc.Quality = 0;
+	device->CreateTexture2D(&vsmDesc, 0, &vsmTexture);
+
+	D3D11_SHADER_RESOURCE_VIEW_DESC vsmsrvDesc = {};
+	vsmsrvDesc.Format = vsmDesc.Format;
+	vsmsrvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+	vsmsrvDesc.Texture2D.MipLevels = 1;
+	vsmsrvDesc.Texture2D.MostDetailedMip = 0;
+	device->CreateShaderResourceView(vsmTexture, &vsmsrvDesc, &vsmSRV);
+
+	D3D11_RENDER_TARGET_VIEW_DESC vsmrtvDesc = {};
+	vsmrtvDesc.Format = vsmDesc.Format;
+	vsmrtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	vsmrtvDesc.Texture2D.MipSlice = 0;
+	device->CreateRenderTargetView(vsmTexture, &vsmrtvDesc, &vsmRTV);
+
+	vsmTexture->Release();
+
 	rd = {};
 	rd.CullMode = D3D11_CULL_BACK;
 	rd.FillMode = D3D11_FILL_SOLID;
@@ -232,7 +262,7 @@ void D11Graphics::BeginNewFrame()
 	context->RSSetViewports(1, &viewport);
 
 	const float color[4] = { 0,1,1,0 };
-	context->ClearRenderTargetView(backBufferRTV, color); // Will remove this once skyboxes work
+	context->ClearRenderTargetView(backBufferRTV, color);
 	context->ClearDepthStencilView(depthStencilView, D3D11_CLEAR_DEPTH | D3D11_CLEAR_STENCIL, 1.0f, 0);
 
 	context->PSSetSamplers(0, 1, &sampler);
@@ -243,18 +273,19 @@ void D11Graphics::BeginShadowPrepass()
 {
 	context->RSSetState(shadowMapRasterState);
 	context->OMSetDepthStencilState(0, 0);
-	context->OMSetRenderTargets(0, 0, shadowMapDSV);
+	context->OMSetRenderTargets(1, &vsmRTV, shadowMapDSV);
 	context->RSSetViewports(1, &shadowMapViewport);
 
 	context->ClearDepthStencilView(shadowMapDSV, D3D11_CLEAR_DEPTH, 1.0f, 0);
-
-	context->PSSetShader(0, 0, 0);
+	const float color[4] = { 0,1,1,0 };
+	context->ClearRenderTargetView(backBufferRTV, color); // Will remove this once skyboxes work
 }
 
 void D11Graphics::EndFrame()
 {
 	swapChain->Present(0, 0);
 	context->PSSetShaderResources(8, 1, &blankSRV);
+	context->PSSetShaderResources(9, 1, &blankSRV);
 }
 
 void D11Graphics::DestroyGraphics()
@@ -266,6 +297,7 @@ void D11Graphics::DestroyGraphics()
 
 	shadowMapDSV->Release();
 	shadowMapSRV->Release();
+	vsmSRV->Release();
 	shadowMapRasterState->Release();
 	shadowMapSampler->Release();
 
@@ -526,6 +558,7 @@ void D11Graphics::DrawMesh(Mesh* mesh)
 void D11Graphics::DrawShadowedMesh(Mesh* mesh)
 {
 	context->PSSetShaderResources(8, 1, &shadowMapSRV);
+	context->PSSetShaderResources(9, 1, &vsmSRV);
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
 	context->IASetVertexBuffers(0, 1, &(mesh->vertexBuffer), &stride, &offset);

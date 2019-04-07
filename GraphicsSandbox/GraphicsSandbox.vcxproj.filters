@@ -58,9 +58,6 @@
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
-    <None Include="packages.config" />
-  </ItemGroup>
-  <ItemGroup>
     <FxCompile Include="Shaders\BasePixelShader.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
@@ -76,5 +73,8 @@
     <FxCompile Include="Shaders\ShadowVertexShader.hlsl">
       <Filter>Shaders</Filter>
     </FxCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
 </Project>

@@ -76,6 +76,8 @@ private:
 	// Shadow Maps
 	ID3D11DepthStencilView* shadowMapDSV;
 	ID3D11ShaderResourceView* shadowMapSRV;
+	ID3D11ShaderResourceView* vsmSRV;
+	ID3D11RenderTargetView* vsmRTV;
 	ID3D11SamplerState* shadowMapSampler;
 	ID3D11RasterizerState* shadowMapRasterState;
 	D3D11_VIEWPORT shadowMapViewport;

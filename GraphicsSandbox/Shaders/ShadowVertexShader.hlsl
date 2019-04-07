@@ -24,5 +24,10 @@ VertexToPixel main(VertexShaderInput input)
 
 	output.position = mul(float4(input.position, 1.0f), shadowProjViewWorld);
 
+	float depth = output.position.z / output.position.w;
+	float dx = ddx(depth);
+	float dy = ddy(depth);
+
+
 	return output;
 }

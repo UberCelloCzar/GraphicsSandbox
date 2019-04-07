@@ -40,6 +40,7 @@ void Engine::GameSetup()
 	assetManager->LoadVertexShader((char*)"SkyboxVS", "SkyboxVertexShader", graphics);
 	assetManager->LoadPixelShader((char*)"SkyboxPS", "SkyboxPixelShader", graphics);
 	assetManager->LoadVertexShader((char*)"ShadowVS", "ShadowVertexShader", graphics);
+	assetManager->LoadVertexShader((char*)"ShadowPS", "ShadowPixelShader", graphics);
 
 	/* Initialize Camera */
 	camera = new Camera();
@@ -254,6 +255,7 @@ void Engine::Draw()
 	CalculateShadowMapProjectionMatrix();
 	CalculateShadowMapProjViewMatrix();
 	graphics->SetVertexShader(assetManager->GetVertexShader(std::string("ShadowVS")));
+	graphics->SetPixelShader(assetManager->GetPixelShader(std::string("ShadowPS")));
 	graphics->BeginShadowPrepass();
 
 	for (size_t i = 1; i < entities.size(); ++i)
