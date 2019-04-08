@@ -28,13 +28,28 @@ Texture2D BRDFLookup		 : register(t5);
 TextureCube EnvIrradianceMap : register(t6);
 TextureCube EnvPrefilterMap	 : register(t7);
 Texture2D ShadowMap          : register(t8);
-Texture2D VSMap              : register(t9);
+Texture2D VSMMap              : register(t9);
 
 SamplerState BasicSampler	: register(s0);
 SamplerComparisonState ShadowSampler : register(s1);
 
 static const float PI = 3.14159265359;
 static const float MAX_REF_LOD = 4.0f;
+
+float linstep(float low, float high, float v) 
+{
+	return clamp((v - low) / (high - low), 0.0, 1.0);
+}
+
+float VSM(float2 uv, float compare) 
+{
+	float2 moments = VSMMap.Sample(BasicSampler, uv).rg;
+	float p = smoothstep(compare - 0.02, compare, moments.x);
+	float variance = max(moments.y - moments.x*moments.x, -0.001);
+	float d = compare - moments.x;
+	float p_max = linstep(0.2, 1.0, variance / (variance + d * d));
+	return clamp(max(p, p_max), 0.0, 1.0);
+}
 
 float NormalDistributionGGXTR(float3 normal, float3 halfway, float roughness)
 {
@@ -132,7 +147,8 @@ float4 main(VertexToPixel input) : SV_TARGET
 	shadowUV.y = 1.0f - shadowUV.y; // Invert v
 	float depth = input.shadowMapPos.z / input.shadowMapPos.w;
 
-	float shadowAmount = ShadowMap.SampleCmpLevelZero(ShadowSampler, shadowUV, depth);
+	//float shadowAmount = ShadowMap.SampleCmpLevelZero(ShadowSampler, shadowUV, depth);
+	float shadowAmount = VSM(shadowUV, depth);
 
 	CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos1.xyz, lightColor1.rgb, F0, radiance); // First light casts shadow
 	Lo += radiance * shadowAmount;

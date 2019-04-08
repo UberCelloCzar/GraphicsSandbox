@@ -193,7 +193,7 @@ bool D11Graphics::Initialize()
 	vsmDesc.Height = 768;
 	vsmDesc.MipLevels = 1;
 	vsmDesc.ArraySize = 1;
-	vsmDesc.Format = DXGI_FORMAT_R32_FLOAT;
+	vsmDesc.Format = DXGI_FORMAT_R32G32_FLOAT;
 	vsmDesc.Usage = D3D11_USAGE_DEFAULT;
 	vsmDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 	vsmDesc.CPUAccessFlags = 0;
@@ -297,6 +297,7 @@ void D11Graphics::DestroyGraphics()
 
 	shadowMapDSV->Release();
 	shadowMapSRV->Release();
+	vsmRTV->Release();
 	vsmSRV->Release();
 	shadowMapRasterState->Release();
 	shadowMapSampler->Release();

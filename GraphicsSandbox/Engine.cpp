@@ -40,7 +40,7 @@ void Engine::GameSetup()
 	assetManager->LoadVertexShader((char*)"SkyboxVS", "SkyboxVertexShader", graphics);
 	assetManager->LoadPixelShader((char*)"SkyboxPS", "SkyboxPixelShader", graphics);
 	assetManager->LoadVertexShader((char*)"ShadowVS", "ShadowVertexShader", graphics);
-	assetManager->LoadVertexShader((char*)"ShadowPS", "ShadowPixelShader", graphics);
+	assetManager->LoadPixelShader((char*)"ShadowPS", "ShadowPixelShader", graphics);
 
 	/* Initialize Camera */
 	camera = new Camera();
@@ -125,7 +125,7 @@ void Engine::GameSetup()
 	floor->albedoKey = "A_Gold";
 	floor->normalKey = "N_Plain";
 	floor->metallicKey = "M_0Metal";
-	floor->roughnessKey = "R_Gold";
+	floor->roughnessKey = "M_100Metal";
 	floor->aoKey = "M_100Metal";
 	floor->vertexShaderConstants = {};
 
