@@ -27,8 +27,7 @@ Texture2D AOMap              : register(t4);
 Texture2D BRDFLookup		 : register(t5);
 TextureCube EnvIrradianceMap : register(t6);
 TextureCube EnvPrefilterMap	 : register(t7);
-Texture2D ShadowMap          : register(t8);
-Texture2D VSMMap              : register(t9);
+Texture2D VSMMap              : register(t8);
 
 SamplerState BasicSampler	: register(s0);
 SamplerComparisonState ShadowSampler : register(s1);

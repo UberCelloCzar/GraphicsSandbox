@@ -106,20 +106,20 @@ void Engine::GameSetup()
 
 
 	GameEntity* snowball = new GameEntity();
-	snowball->position = XMFLOAT3(0.f, 0.f, 5.0f);
+	snowball->position = XMFLOAT3(0.f, 2.f, 5.0f);
 	snowball->scale = XMFLOAT3(1.f, 1.f, 1.f);
 	XMStoreFloat4(&snowball->rotationQuaternion, XMQuaternionIdentity());
 	snowball->modelKey = "Sphere";
-	snowball->albedoKey = "A_Gold";
-	snowball->normalKey = "N_Plain";
-	snowball->metallicKey = "M_100Metal";
-	snowball->roughnessKey = "M_0Metal";
-	snowball->aoKey = "M_100Metal";
+	snowball->albedoKey = "A_Snow";
+	snowball->normalKey = "N_Snow";
+	snowball->metallicKey = "M_0Metal";
+	snowball->roughnessKey = "R_Snow";
+	snowball->aoKey = "AO_Snow";
 	snowball->vertexShaderConstants = {};
 
 	GameEntity* floor = new GameEntity();
 	floor->scale = XMFLOAT3(30.f, .1f, 30.f);
-	floor->position = XMFLOAT3(0.f, -3.f, 0.0f);
+	floor->position = XMFLOAT3(0.f, -.5f, 0.0f);
 	XMStoreFloat4(&floor->rotationQuaternion, XMQuaternionRotationRollPitchYaw(-XM_PI, 0, 0));
 	floor->modelKey = "Cube";
 	floor->albedoKey = "A_Gold";
@@ -278,6 +278,7 @@ void Engine::Draw()
 	pixelShaderConstants.cameraPosition.x = camera->position.x;
 	pixelShaderConstants.cameraPosition.y = camera->position.y;
 	pixelShaderConstants.cameraPosition.z = camera->position.z;
+	graphics->RunShadowAA();
 	graphics->BeginNewFrame();
 	for (size_t i = 1; i < entities.size(); ++i)
 	{

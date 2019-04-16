@@ -145,35 +145,29 @@ bool D11Graphics::Initialize()
 	device->CreateDepthStencilState(&ds, &skyDepthState);
 
 	/* Shadow Map Stuff */
-	ID3D11Texture2D* shadowMapTexture;
-	D3D11_TEXTURE2D_DESC shadowMapDesc = {};
-	shadowMapDesc.Width = 1024;
-	shadowMapDesc.Height = 768;
-	shadowMapDesc.MipLevels = 1;
-	shadowMapDesc.ArraySize = 1;
-	shadowMapDesc.Format = DXGI_FORMAT_R32_TYPELESS;
-	shadowMapDesc.Usage = D3D11_USAGE_DEFAULT;
-	shadowMapDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
-	shadowMapDesc.CPUAccessFlags = 0;
-	shadowMapDesc.MiscFlags = 0;
-	shadowMapDesc.SampleDesc.Count = 1;
-	shadowMapDesc.SampleDesc.Quality = 0;
-	device->CreateTexture2D(&shadowMapDesc, 0, &shadowMapTexture);
+	// Depth stencil
+	ID3D11Texture2D* shadowDepthTexture;
+	D3D11_TEXTURE2D_DESC shadowDepthDesc = {};
+	shadowDepthDesc.Width = 1024;
+	shadowDepthDesc.Height = 768;
+	shadowDepthDesc.MipLevels = 1;
+	shadowDepthDesc.ArraySize = 1;
+	shadowDepthDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+	shadowDepthDesc.Usage = D3D11_USAGE_DEFAULT;
+	shadowDepthDesc.BindFlags = D3D11_BIND_DEPTH_STENCIL | D3D11_BIND_SHADER_RESOURCE;
+	shadowDepthDesc.CPUAccessFlags = 0;
+	shadowDepthDesc.MiscFlags = 0;
+	shadowDepthDesc.SampleDesc.Count = 8;
+	shadowDepthDesc.SampleDesc.Quality = 0;
+	device->CreateTexture2D(&shadowDepthDesc, 0, &shadowDepthTexture);
 
 	D3D11_DEPTH_STENCIL_VIEW_DESC smdsDesc = {};
 	smdsDesc.Format = DXGI_FORMAT_D32_FLOAT;
-	smdsDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2D;
+	smdsDesc.ViewDimension = D3D11_DSV_DIMENSION_TEXTURE2DMS;
 	smdsDesc.Texture2D.MipSlice = 0;
-	device->CreateDepthStencilView(shadowMapTexture, &smdsDesc, &shadowMapDSV);
+	device->CreateDepthStencilView(shadowDepthTexture, &smdsDesc, &shadowMapDSV);
 
-	D3D11_SHADER_RESOURCE_VIEW_DESC smsrvDesc = {};
-	smsrvDesc.Format = DXGI_FORMAT_R32_FLOAT;
-	smsrvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-	smsrvDesc.Texture2D.MipLevels = 1;
-	smsrvDesc.Texture2D.MostDetailedMip = 0;
-	device->CreateShaderResourceView(shadowMapTexture, &smsrvDesc, &shadowMapSRV);
-
-	shadowMapTexture->Release();
+	shadowDepthTexture->Release();
 
 	D3D11_SAMPLER_DESC shadowSampDesc = {};
 	shadowSampDesc.Filter = D3D11_FILTER_COMPARISON_MIN_MAG_MIP_LINEAR;
@@ -187,35 +181,48 @@ bool D11Graphics::Initialize()
 	shadowSampDesc.BorderColor[3] = 1.0f;
 	device->CreateSamplerState(&shadowSampDesc, &shadowMapSampler);
 
-	ID3D11Texture2D* vsmTexture;
-	D3D11_TEXTURE2D_DESC vsmDesc = {};
-	vsmDesc.Width = 1024;
-	vsmDesc.Height = 768;
-	vsmDesc.MipLevels = 1;
-	vsmDesc.ArraySize = 1;
-	vsmDesc.Format = DXGI_FORMAT_R32G32_FLOAT;
-	vsmDesc.Usage = D3D11_USAGE_DEFAULT;
-	vsmDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
-	vsmDesc.CPUAccessFlags = 0;
-	vsmDesc.MiscFlags = 0;
-	vsmDesc.SampleDesc.Count = 1;
-	vsmDesc.SampleDesc.Quality = 0;
-	device->CreateTexture2D(&vsmDesc, 0, &vsmTexture);
+	// VSM msaa render target
+	D3D11_TEXTURE2D_DESC vsmMsaaDesc = {};
+	vsmMsaaDesc.Width = 1024;
+	vsmMsaaDesc.Height = 768;
+	vsmMsaaDesc.MipLevels = 1;
+	vsmMsaaDesc.ArraySize = 1;
+	vsmMsaaDesc.Format = DXGI_FORMAT_R32G32_FLOAT;
+	vsmMsaaDesc.Usage = D3D11_USAGE_DEFAULT;
+	vsmMsaaDesc.BindFlags = D3D11_BIND_RENDER_TARGET;
+	vsmMsaaDesc.CPUAccessFlags = 0;
+	vsmMsaaDesc.MiscFlags = 0;
+	vsmMsaaDesc.SampleDesc.Count = 8;
+	vsmMsaaDesc.SampleDesc.Quality = 0;
+	device->CreateTexture2D(&vsmMsaaDesc, 0, &vsmMsaaTexture);
+
+	D3D11_RENDER_TARGET_VIEW_DESC vsmrtvDesc = {};
+	vsmrtvDesc.Format = vsmMsaaDesc.Format;
+	vsmrtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2DMS;
+	vsmrtvDesc.Texture2D.MipSlice = 0;
+	device->CreateRenderTargetView(vsmMsaaTexture, &vsmrtvDesc, &vsmRTV);
+
+	// VSM resolved texture and srv
+	D3D11_TEXTURE2D_DESC vsmResolvedDesc = {};
+	vsmResolvedDesc.Width = 1024;
+	vsmResolvedDesc.Height = 768;
+	vsmResolvedDesc.MipLevels = 1;
+	vsmResolvedDesc.ArraySize = 1;
+	vsmResolvedDesc.Format = DXGI_FORMAT_R32G32_FLOAT;
+	vsmResolvedDesc.Usage = D3D11_USAGE_DEFAULT;
+	vsmResolvedDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	vsmResolvedDesc.CPUAccessFlags = 0;
+	vsmResolvedDesc.MiscFlags = 0;
+	vsmResolvedDesc.SampleDesc.Count = 1;
+	vsmResolvedDesc.SampleDesc.Quality = 0;
+	device->CreateTexture2D(&vsmResolvedDesc, 0, &vsmResolvedTexture);
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC vsmsrvDesc = {};
-	vsmsrvDesc.Format = vsmDesc.Format;
+	vsmsrvDesc.Format = vsmResolvedDesc.Format;
 	vsmsrvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
 	vsmsrvDesc.Texture2D.MipLevels = 1;
 	vsmsrvDesc.Texture2D.MostDetailedMip = 0;
-	device->CreateShaderResourceView(vsmTexture, &vsmsrvDesc, &vsmSRV);
-
-	D3D11_RENDER_TARGET_VIEW_DESC vsmrtvDesc = {};
-	vsmrtvDesc.Format = vsmDesc.Format;
-	vsmrtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
-	vsmrtvDesc.Texture2D.MipSlice = 0;
-	device->CreateRenderTargetView(vsmTexture, &vsmrtvDesc, &vsmRTV);
-
-	vsmTexture->Release();
+	device->CreateShaderResourceView(vsmResolvedTexture, &vsmsrvDesc, &vsmSRV);
 
 	rd = {};
 	rd.CullMode = D3D11_CULL_BACK;
@@ -224,13 +231,14 @@ bool D11Graphics::Initialize()
 	rd.DepthBias = 1000;
 	rd.DepthBiasClamp = 0.f;
 	rd.SlopeScaledDepthBias = 1.f;
+	rd.MultisampleEnable = true;
 	device->CreateRasterizerState(&rd, &shadowMapRasterState);
 
 	shadowMapViewport = {}; // Set up the viewport
 	shadowMapViewport.TopLeftX = 0;
 	shadowMapViewport.TopLeftY = 0;
-	shadowMapViewport.Width = (float)shadowMapDesc.Width;
-	shadowMapViewport.Height = (float)shadowMapDesc.Height;
+	shadowMapViewport.Width = (float)shadowDepthDesc.Width;
+	shadowMapViewport.Height = (float)shadowDepthDesc.Height;
 	shadowMapViewport.MinDepth = 0.0f;
 	shadowMapViewport.MaxDepth = 1.0f;
 
@@ -281,22 +289,27 @@ void D11Graphics::BeginShadowPrepass()
 	context->ClearRenderTargetView(backBufferRTV, color); // Will remove this once skyboxes work
 }
 
+void D11Graphics::RunShadowAA()
+{
+	context->ResolveSubresource(vsmResolvedTexture, 0, vsmMsaaTexture, 0, DXGI_FORMAT_R32G32_FLOAT); // calcsubresource gives  MipSlice + (ArraySlice * MipLevels) which in both cases is always 0
+}
+
 void D11Graphics::EndFrame()
 {
 	swapChain->Present(0, 0);
 	context->PSSetShaderResources(8, 1, &blankSRV);
-	context->PSSetShaderResources(9, 1, &blankSRV);
 }
 
 void D11Graphics::DestroyGraphics()
 {
+	vsmMsaaTexture->Release();
+	vsmResolvedTexture->Release();
 	sampler->Release();
 	normalRasterState->Release();
 	skyRasterState->Release();
 	skyDepthState->Release();
 
 	shadowMapDSV->Release();
-	shadowMapSRV->Release();
 	vsmRTV->Release();
 	vsmSRV->Release();
 	shadowMapRasterState->Release();
@@ -558,8 +571,7 @@ void D11Graphics::DrawMesh(Mesh* mesh)
 
 void D11Graphics::DrawShadowedMesh(Mesh* mesh)
 {
-	context->PSSetShaderResources(8, 1, &shadowMapSRV);
-	context->PSSetShaderResources(9, 1, &vsmSRV);
+	context->PSSetShaderResources(8, 1, &vsmSRV);
 	UINT stride = sizeof(Vertex);
 	UINT offset = 0;
 	context->IASetVertexBuffers(0, 1, &(mesh->vertexBuffer), &stride, &offset);

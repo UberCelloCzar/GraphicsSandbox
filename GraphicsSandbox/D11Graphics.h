@@ -24,6 +24,7 @@ public:
 	bool HandleLowLevelEvents(bool quit);
 	void BeginNewFrame();
 	void BeginShadowPrepass();
+	void RunShadowAA();
 	void EndFrame();
 	void DestroyGraphics();
 
@@ -75,13 +76,14 @@ private:
 
 	// Shadow Maps
 	ID3D11DepthStencilView* shadowMapDSV;
-	ID3D11ShaderResourceView* shadowMapSRV;
 	ID3D11ShaderResourceView* vsmSRV;
 	ID3D11RenderTargetView* vsmRTV;
 	ID3D11SamplerState* shadowMapSampler;
 	ID3D11RasterizerState* shadowMapRasterState;
 	D3D11_VIEWPORT shadowMapViewport;
 	ID3D11ShaderResourceView* blankSRV;
+	ID3D11Texture2D* vsmMsaaTexture;
+	ID3D11Texture2D* vsmResolvedTexture;
 
 	uint16_t windowWidth = DISPLAY_WIDTH;
 	uint16_t windowHeight = DISPLAY_HEIGHT;
