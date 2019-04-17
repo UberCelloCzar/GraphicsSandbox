@@ -25,6 +25,7 @@ public:
 	void BeginNewFrame();
 	void BeginShadowPrepass();
 	void RunShadowAA();
+	void RunShadowBlurPass(ID3D11PixelShader* verticalBlurShader, ID3D11PixelShader* horizontalBlurShader);
 	void EndFrame();
 	void DestroyGraphics();
 
@@ -83,7 +84,11 @@ private:
 	D3D11_VIEWPORT shadowMapViewport;
 	ID3D11ShaderResourceView* blankSRV;
 	ID3D11Texture2D* vsmMsaaTexture;
-	ID3D11Texture2D* vsmResolvedTexture;
+	ID3D11Texture2D* vsmResolvedTexture; // Doubles as blur ping texture
+	ID3D11RenderTargetView* blurPingRTV;
+	ID3D11RenderTargetView* blurPongRTV;
+	ID3D11ShaderResourceView* blurPongSRV;
+	ID3D11Buffer* blurPixelShaderConstantBuffer = nullptr;
 
 	uint16_t windowWidth = DISPLAY_WIDTH;
 	uint16_t windowHeight = DISPLAY_HEIGHT;

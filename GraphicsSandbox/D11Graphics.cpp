@@ -203,6 +203,7 @@ bool D11Graphics::Initialize()
 	device->CreateRenderTargetView(vsmMsaaTexture, &vsmrtvDesc, &vsmRTV);
 
 	// VSM resolved texture and srv
+	ID3D11Texture2D* texture;
 	D3D11_TEXTURE2D_DESC vsmResolvedDesc = {};
 	vsmResolvedDesc.Width = 1024;
 	vsmResolvedDesc.Height = 768;
@@ -210,12 +211,13 @@ bool D11Graphics::Initialize()
 	vsmResolvedDesc.ArraySize = 1;
 	vsmResolvedDesc.Format = DXGI_FORMAT_R32G32_FLOAT;
 	vsmResolvedDesc.Usage = D3D11_USAGE_DEFAULT;
-	vsmResolvedDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+	vsmResolvedDesc.BindFlags = D3D11_BIND_RENDER_TARGET | D3D11_BIND_SHADER_RESOURCE;
 	vsmResolvedDesc.CPUAccessFlags = 0;
 	vsmResolvedDesc.MiscFlags = 0;
 	vsmResolvedDesc.SampleDesc.Count = 1;
 	vsmResolvedDesc.SampleDesc.Quality = 0;
 	device->CreateTexture2D(&vsmResolvedDesc, 0, &vsmResolvedTexture);
+	device->CreateTexture2D(&vsmResolvedDesc, 0, &texture);
 
 	D3D11_SHADER_RESOURCE_VIEW_DESC vsmsrvDesc = {};
 	vsmsrvDesc.Format = vsmResolvedDesc.Format;
@@ -223,6 +225,15 @@ bool D11Graphics::Initialize()
 	vsmsrvDesc.Texture2D.MipLevels = 1;
 	vsmsrvDesc.Texture2D.MostDetailedMip = 0;
 	device->CreateShaderResourceView(vsmResolvedTexture, &vsmsrvDesc, &vsmSRV);
+	device->CreateShaderResourceView(texture, &vsmsrvDesc, &blurPongSRV);
+
+	D3D11_RENDER_TARGET_VIEW_DESC blurRtvDesc = {};
+	blurRtvDesc.Format = vsmResolvedDesc.Format;
+	blurRtvDesc.ViewDimension = D3D11_RTV_DIMENSION_TEXTURE2D;
+	blurRtvDesc.Texture2D.MipSlice = 0;
+	device->CreateRenderTargetView(vsmResolvedTexture, &blurRtvDesc, &blurPingRTV);
+	device->CreateRenderTargetView(texture, &blurRtvDesc, &blurPongRTV);
+	texture->Release();
 
 	rd = {};
 	rd.CullMode = D3D11_CULL_BACK;
@@ -241,6 +252,9 @@ bool D11Graphics::Initialize()
 	shadowMapViewport.Height = (float)shadowDepthDesc.Height;
 	shadowMapViewport.MinDepth = 0.0f;
 	shadowMapViewport.MaxDepth = 1.0f;
+
+	float invAspectRatio = shadowMapViewport.Height / shadowMapViewport.Width;
+	blurPixelShaderConstantBuffer = CreateConstantBuffer(&invAspectRatio, sizeof(PShaderConstants));
 
 	context->RSSetViewports(1, &viewport); // Bind the viewport
 
@@ -294,6 +308,44 @@ void D11Graphics::RunShadowAA()
 	context->ResolveSubresource(vsmResolvedTexture, 0, vsmMsaaTexture, 0, DXGI_FORMAT_R32G32_FLOAT); // calcsubresource gives  MipSlice + (ArraySlice * MipLevels) which in both cases is always 0
 }
 
+void D11Graphics::RunShadowBlurPass(ID3D11PixelShader* verticalBlurShader, ID3D11PixelShader* horizontalBlurShader)
+{
+	context->RSSetState(normalRasterState);
+	context->OMSetRenderTargets(1, &blurPongRTV, 0);
+	context->RSSetViewports(1, &shadowMapViewport);
+
+	const float color[4] = { 0,0,0,0 };
+	context->ClearRenderTargetView(blurPongRTV, color);
+	context->PSSetSamplers(0, 1, &sampler);
+
+	/* Vertical Pass */
+	context->PSSetShader(verticalBlurShader, 0, 0);
+	context->PSSetShaderResources(0, 1, &vsmSRV);
+
+	UINT stride = sizeof(Vertex);
+	UINT offset = 0;
+	ID3D11Buffer* blank = 0;
+	context->IASetVertexBuffers(0, 1, &blank, &stride, &offset);
+	context->IASetIndexBuffer(0, DXGI_FORMAT_R32_UINT, 0);
+
+	context->Draw(3, 0); // Draw one heckin big triangle
+	context->PSSetShaderResources(0, 1, &blankSRV); // Clear set resources so they can be used again
+
+	/* Horizontal Pass */
+	context->OMSetRenderTargets(1, &blurPingRTV, 0);
+	context->ClearRenderTargetView(blurPingRTV, color);
+	context->PSSetSamplers(0, 1, &sampler);
+
+	context->PSSetShader(horizontalBlurShader, 0, 0);
+	context->PSSetShaderResources(0, 1, &blurPongSRV);
+	context->PSSetConstantBuffers(0, 1, &blurPixelShaderConstantBuffer);
+
+	context->IASetVertexBuffers(0, 1, &blank, &stride, &offset);
+	context->IASetIndexBuffer(0, DXGI_FORMAT_R32_UINT, 0);
+	context->Draw(3, 0); // Draw one heckin big triangle
+	context->PSSetShaderResources(0, 1, &blankSRV); // Clear set resources so they can be used again
+}
+
 void D11Graphics::EndFrame()
 {
 	swapChain->Present(0, 0);
@@ -309,11 +361,15 @@ void D11Graphics::DestroyGraphics()
 	skyRasterState->Release();
 	skyDepthState->Release();
 
+	blurPingRTV->Release();
+	blurPongRTV->Release();
+	blurPongSRV->Release();
 	shadowMapDSV->Release();
 	vsmRTV->Release();
 	vsmSRV->Release();
 	shadowMapRasterState->Release();
 	shadowMapSampler->Release();
+	blurPixelShaderConstantBuffer->Release();
 
 	if (depthStencilView) { depthStencilView->Release(); }
 	if (backBufferRTV) { backBufferRTV->Release(); }

@@ -41,6 +41,9 @@ void Engine::GameSetup()
 	assetManager->LoadPixelShader((char*)"SkyboxPS", "SkyboxPixelShader", graphics);
 	assetManager->LoadVertexShader((char*)"ShadowVS", "ShadowVertexShader", graphics);
 	assetManager->LoadPixelShader((char*)"ShadowPS", "ShadowPixelShader", graphics);
+	assetManager->LoadVertexShader((char*)"FillscreenVS", "FillscreenVertexShader", graphics);
+	assetManager->LoadPixelShader((char*)"GaussHoriPS", "GaussianBlurHorizontalPixelShader", graphics);
+	assetManager->LoadPixelShader((char*)"GaussVertPS", "GaussianBlurVerticalPixelShader", graphics);
 
 	/* Initialize Camera */
 	camera = new Camera();
@@ -257,7 +260,7 @@ void Engine::Draw()
 	graphics->SetVertexShader(assetManager->GetVertexShader(std::string("ShadowVS")));
 	graphics->SetPixelShader(assetManager->GetPixelShader(std::string("ShadowPS")));
 	graphics->BeginShadowPrepass();
-
+	// Shadow pass
 	for (size_t i = 1; i < entities.size(); ++i)
 	{
 		CalculateProjViewWorldMatrix(entities[i]); // Update the main matrix in the vertex shader constants area of the entity
@@ -273,12 +276,18 @@ void Engine::Draw()
 		}
 	}
 
+	/* Resolve soft shadows */
+	graphics->RunShadowAA();
+	graphics->SetVertexShader(assetManager->GetVertexShader("FillscreenVS"));
+	graphics->RunShadowBlurPass(assetManager->GetPixelShader("GaussVertPS"), assetManager->GetPixelShader("GaussHoriPS"));
+
 	graphics->SetVertexShader(assetManager->GetVertexShader(std::string("BaseVS")));
 	graphics->SetPixelShader(assetManager->GetPixelShader(std::string("BasePS")));
 	pixelShaderConstants.cameraPosition.x = camera->position.x;
 	pixelShaderConstants.cameraPosition.y = camera->position.y;
 	pixelShaderConstants.cameraPosition.z = camera->position.z;
-	graphics->RunShadowAA();
+
+	/* Draw pass */
 	graphics->BeginNewFrame();
 	for (size_t i = 1; i < entities.size(); ++i)
 	{
