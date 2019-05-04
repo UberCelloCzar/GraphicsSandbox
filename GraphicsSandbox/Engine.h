@@ -22,10 +22,13 @@ private:
 	void CalculateProjectionMatrix();
 	void CalculateProjViewMatrix();
 	void CalculateProjViewWorldMatrix(GameEntity* entity);
+	void CalculateProjectorProjectionMatrix(XMFLOAT4X4* dest, float pFov, float aspect);
+	void CalculateProjectorViewMatrix(XMFLOAT4X4* dest, XMFLOAT3* position, XMFLOAT3* lookAt, XMFLOAT3* up);
 	D11Graphics* graphics;
 	AssetManager* assetManager;
 	std::vector<GameEntity*> entities;
 	Camera* camera;
+	Projector* projector1;
 	PShaderConstants pixelShaderConstants;
 	SkyboxVShaderConstants skyboxVShaderConstants;
 

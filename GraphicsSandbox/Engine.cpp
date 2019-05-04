@@ -87,7 +87,18 @@ void Engine::GameSetup()
 		assetManager->LoadWICTexture((char*)"M_Cerberus", "Cerberus_M.jpg", graphics);
 		assetManager->LoadWICTexture((char*)"R_Cerberus", "Cerberus_R.jpg", graphics);
 		assetManager->LoadWICTexture((char*)"AO_Cerberus", "Cerberus_AO.jpg", graphics);
+
+		assetManager->LoadWICTexture((char*)"A_Mistake", "mistake.jpg", graphics);
 	}
+
+	/* Projective Texturing */
+	projector1 = new Projector();
+	projector1->position = XMFLOAT3(0.f, 7.f, -7.f);
+	projector1->direction = XMFLOAT3(0.f, -1.f, 1.f);
+	projector1->up = XMFLOAT3(0.f, 1.f, 1.f);
+	projector1->albedoKey = "A_Mistake";
+	CalculateProjectorProjectionMatrix(&projector1->projection, XM_PIDIV2, 1.0f);
+	CalculateProjectorViewMatrix(&projector1->view, &projector1->position, &projector1->direction, &projector1->up);
 
 	/* Create Game Objects */
 	GameEntity* cube = new GameEntity(); // Entity 0 should always be a unit cube
@@ -104,8 +115,8 @@ void Engine::GameSetup()
 
 
 	GameEntity* snowball = new GameEntity();
-	snowball->position = XMFLOAT3(0.f, 0.f, 5.0f);
-	snowball->scale = XMFLOAT3(2.f, 2.f, 2.f);
+	snowball->position = XMFLOAT3(0.f, 2.f, 5.0f);
+	snowball->scale = XMFLOAT3(1.f, 1.f, 1.f);
 	XMStoreFloat4(&snowball->rotationQuaternion, XMQuaternionIdentity());
 	snowball->modelKey = "Sphere";
 	snowball->albedoKey = "A_Snow";
@@ -115,21 +126,21 @@ void Engine::GameSetup()
 	snowball->aoKey = "AO_Snow";
 	snowball->vertexShaderConstants = {};
 
-	GameEntity* rock = new GameEntity();
-	rock->scale = XMFLOAT3(2.f, 2.f, 2.f);
-	rock->position = XMFLOAT3(5.f, 0.f, 5.0f);
-	XMStoreFloat4(&rock->rotationQuaternion, XMQuaternionIdentity());
-	rock->modelKey = "Sphere";
-	rock->albedoKey = "A_Rock";
-	rock->normalKey = "N_Rock";
-	rock->metallicKey = "M_0Metal";
-	rock->roughnessKey = "R_Rock";
-	rock->aoKey = "AO_Rock";
-	rock->vertexShaderConstants = {};
+	GameEntity* floor = new GameEntity();
+	floor->scale = XMFLOAT3(30.f, .1f, 30.f);
+	floor->position = XMFLOAT3(0.f, -.3f, 0.0f);
+	XMStoreFloat4(&floor->rotationQuaternion, XMQuaternionRotationRollPitchYaw(-XM_PI, 0, 0));
+	floor->modelKey = "Cube";
+	floor->albedoKey = "A_Snow";
+	floor->normalKey = "N_Snow";
+	floor->metallicKey = "M_0Metal";
+	floor->roughnessKey = "R_Snow";
+	floor->aoKey = "AO_Snow";
+	floor->vertexShaderConstants = {};
 
 	GameEntity* block = new GameEntity();
 	block->scale = XMFLOAT3(1.f, 1.f, 1.f);
-	block->position = XMFLOAT3(-5.f, 0.f, 5.0f);
+	block->position = XMFLOAT3(-1.f, 2.f, -1.0f);
 	XMStoreFloat4(&block->rotationQuaternion, XMQuaternionIdentity());
 	block->modelKey = "Cube";
 	block->albedoKey = "A_Gold";
@@ -141,8 +152,8 @@ void Engine::GameSetup()
 
 	GameEntity* cerberus = new GameEntity();
 	cerberus->scale = XMFLOAT3(.1f, .1f, .1f);
-	cerberus->position = XMFLOAT3(-10.f, 0.f, 20.0f);
-	XMStoreFloat4(&cerberus->rotationQuaternion, XMQuaternionIdentity());
+	cerberus->position = XMFLOAT3(-5.f, 4.f, 5.0f);
+	XMStoreFloat4(&cerberus->rotationQuaternion, XMQuaternionRotationRollPitchYaw(-XM_PIDIV2, 0, 0));
 	cerberus->modelKey = "Cerberus";
 	cerberus->albedoKey = "A_Cerberus";
 	cerberus->normalKey = "N_Cerberus";
@@ -153,13 +164,15 @@ void Engine::GameSetup()
 
 	entities.push_back(cube);
 	entities.push_back(snowball);
-	entities.push_back(rock);
+	entities.push_back(floor);
 	entities.push_back(block);
 	entities.push_back(cerberus);
 
 	for (auto& e : entities)
 	{
 		CalculateProjViewWorldMatrix(e);
+		e->vertexShaderConstants.projectorProj1 = projector1->projection;
+		e->vertexShaderConstants.projectorView1 = projector1->view;
 		e->vertexShaderConstantBuffer = graphics->CreateConstantBuffer(&(e->vertexShaderConstants), sizeof(VShaderConstants));
 	}
 
@@ -251,6 +264,7 @@ void Engine::Draw()
 		graphics->SetTexture(assetManager->GetTexture("BRDF_LUT"), 5);
 		graphics->SetTexture(assetManager->GetTexture("SM_IrrMap"), 6);
 		graphics->SetTexture(assetManager->GetTexture("SM_SpecMap"), 7);
+		graphics->SetTexture(assetManager->GetTexture(projector1->albedoKey), 8);
 
 		Model* model = assetManager->GetModel(entities[i]->modelKey);
 
@@ -286,6 +300,7 @@ void Engine::ShutDown()
 		delete e;
 	}
 	delete camera;
+	delete projector1;
 	assetManager->Destroy();
 	graphics->DestroyGraphics();
 	delete assetManager;
@@ -309,4 +324,14 @@ void Engine::CalculateProjViewWorldMatrix(GameEntity* entity)
 	XMMATRIX world = XMMatrixTranspose(XMMatrixScaling(entity->scale.x, entity->scale.y, entity->scale.z) * XMMatrixRotationQuaternion(XMLoadFloat4(&entity->rotationQuaternion)) * XMMatrixTranslation(entity->position.x, entity->position.y, entity->position.z));
 	XMStoreFloat4x4(&entity->vertexShaderConstants.world, world);
 	XMStoreFloat4x4(&entity->vertexShaderConstants.projViewWorld, XMLoadFloat4x4(&camera->projView) * world); // This result is already transpose, as the individual matrices are transpose and the mult order is reversed
+}
+
+void Engine::CalculateProjectorProjectionMatrix(XMFLOAT4X4* dest, float pFov, float aspect)
+{
+	XMStoreFloat4x4(dest, XMMatrixTranspose(XMMatrixPerspectiveFovLH(pFov, aspect, 0.1f, 50.0f))); // Update with new w/h
+}
+
+void Engine::CalculateProjectorViewMatrix(XMFLOAT4X4* dest, XMFLOAT3* position, XMFLOAT3* direction, XMFLOAT3* up)
+{
+	XMStoreFloat4x4(dest, XMMatrixTranspose(XMMatrixLookToLH(XMLoadFloat3(position), XMLoadFloat3(direction), XMLoadFloat3(up))));
 }

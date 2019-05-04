@@ -58,6 +58,8 @@ struct VShaderConstants
 {
 	XMFLOAT4X4 projViewWorld;
 	XMFLOAT4X4 world;
+	XMFLOAT4X4 projectorView1;
+	XMFLOAT4X4 projectorProj1;
 };
 
 struct PShaderConstants
@@ -69,7 +71,7 @@ struct PShaderConstants
 	XMFLOAT3A lightColor1;
 	XMFLOAT3A lightColor2;
 	XMFLOAT3A lightColor3;
-}; // TODO: Check how to handle padding
+};
 
 
 struct SkyboxVShaderConstants
@@ -103,6 +105,16 @@ struct VertexShader
 		shaderPointer->Release();
 		inputLayout->Release();
 	}
+};
+
+struct Projector
+{
+	XMFLOAT4X4 view;
+	XMFLOAT4X4 projection;
+	XMFLOAT3 position;
+	XMFLOAT3 direction;
+	XMFLOAT3 up;
+	std::string albedoKey;
 };
 
 //namespace glm {

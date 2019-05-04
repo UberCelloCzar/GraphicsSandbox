@@ -12,10 +12,11 @@ cbuffer PShaderConstants : register(b0)
 struct VertexToPixel
 {
 	float4 position		: SV_POSITION;
-	float2 uv			: TEXCOORD;
+	float2 uv			: TEXCOORD0;
 	float3 normal		: NORMAL;
 	float3 tangent		: TANGENT;
 	float3 worldPos		: POSITION;
+	float4 viewPosition : TEXCOORD1;
 };
 
 Texture2D AlbedoMap     	 : register(t0);
@@ -26,6 +27,7 @@ Texture2D AOMap              : register(t4);
 Texture2D BRDFLookup		 : register(t5);
 TextureCube EnvIrradianceMap : register(t6);
 TextureCube EnvPrefilterMap	 : register(t7);
+Texture2D ProjectedTex1		 : register(t8);
 
 SamplerState BasicSampler	: register(s0);
 
@@ -142,7 +144,19 @@ float4 main(VertexToPixel input) : SV_TARGET
 	float2 brdf = BRDFLookup.Sample(BasicSampler, float2(max(dot(input.normal, view), 0.0f), roughness)).rg;
 	float3 specular = prefilteredColor * (kS * brdf.x + brdf.y);
 
+	float2 projectedUV;
+	float4 projectedColor;
+	projectedUV.x = input.viewPosition.x / input.viewPosition.w / 2.0f + 0.5f;
+	projectedUV.y = -input.viewPosition.y / input.viewPosition.w / 2.0f + 0.5f;
+
 	float3 color = ((kD * diffuse + specular) * ao) + Lo; // Ambient + Lo
+
+	if ((saturate(projectedUV.x) == projectedUV.x) && (saturate(projectedUV.y) == projectedUV.y)) // Check if inside projected area
+	{
+		projectedColor = pow(ProjectedTex1.Sample(BasicSampler, projectedUV), 2.2);
+		color = (projectedColor * ao) + Lo;
+	}
+
 	color = color / (color + float3(1.0f, 1.0f, 1.0f));
 	color = pow(color, float3(0.45454545f, 0.45454545f, 0.45454545f));
 
