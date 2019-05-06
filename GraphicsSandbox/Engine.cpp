@@ -88,15 +88,16 @@ void Engine::GameSetup()
 		assetManager->LoadWICTexture((char*)"R_Cerberus", "Cerberus_R.jpg", graphics);
 		assetManager->LoadWICTexture((char*)"AO_Cerberus", "Cerberus_AO.jpg", graphics);
 
-		assetManager->LoadWICTexture((char*)"A_Mistake", "mistake.jpg", graphics);
+		assetManager->LoadWICTexture((char*)"LC_Flashlight", "lightCookie2.jpg", graphics);
 	}
 
 	/* Projective Texturing */
 	projector1 = new Projector();
-	projector1->position = XMFLOAT3(0.f, 7.f, -7.f);
-	projector1->direction = XMFLOAT3(0.f, -1.f, 1.f);
-	projector1->up = XMFLOAT3(0.f, 1.f, 1.f);
-	projector1->albedoKey = "A_Mistake";
+	projector1->position = XMFLOAT3A(0.f, 9.f, -8.f);
+	projector1->direction = XMFLOAT3(0.f, -1.f, .5f);
+	projector1->up = XMFLOAT3(0.f, .5f, 1.f);
+	projector1->color = XMFLOAT3A(1.0f, 1.0f, 1.0f);
+	projector1->cookieKey = "LC_Flashlight";
 	CalculateProjectorProjectionMatrix(&projector1->projection, XM_PIDIV2, 1.0f);
 	CalculateProjectorViewMatrix(&projector1->view, &projector1->position, &projector1->direction, &projector1->up);
 
@@ -182,10 +183,10 @@ void Engine::GameSetup()
 	pixelShaderConstants.cameraPosition.z = camera->position.z;
 	pixelShaderConstants.lightPos1 = XMFLOAT3A(5.f, 2.f, 15.f);
 	pixelShaderConstants.lightPos2 = XMFLOAT3A(10.f, 5.f, 3.f);
-	pixelShaderConstants.lightPos3 = XMFLOAT3A(0.f, 10.f, 7.f);
+	pixelShaderConstants.lightPos3 = projector1->position;
 	pixelShaderConstants.lightColor1 = XMFLOAT3A(.95f, .95f, 0.f);
 	pixelShaderConstants.lightColor2 = XMFLOAT3A(0.f, .95f, .95f);
-	pixelShaderConstants.lightColor3 = XMFLOAT3A(.95f, 0.f, .95f);
+	pixelShaderConstants.lightColor3 = projector1->color;
 	skyboxVShaderConstants.projection = camera->projection;
 	skyboxVShaderConstants.view = camera->view;
 
@@ -264,7 +265,7 @@ void Engine::Draw()
 		graphics->SetTexture(assetManager->GetTexture("BRDF_LUT"), 5);
 		graphics->SetTexture(assetManager->GetTexture("SM_IrrMap"), 6);
 		graphics->SetTexture(assetManager->GetTexture("SM_SpecMap"), 7);
-		graphics->SetTexture(assetManager->GetTexture(projector1->albedoKey), 8);
+		graphics->SetTexture(assetManager->GetTexture(projector1->cookieKey), 8);
 
 		Model* model = assetManager->GetModel(entities[i]->modelKey);
 

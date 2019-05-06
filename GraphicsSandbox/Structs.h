@@ -111,10 +111,11 @@ struct Projector
 {
 	XMFLOAT4X4 view;
 	XMFLOAT4X4 projection;
-	XMFLOAT3 position;
+	XMFLOAT3A position;
 	XMFLOAT3 direction;
 	XMFLOAT3 up;
-	std::string albedoKey;
+	XMFLOAT3A color;
+	std::string cookieKey;
 };
 
 //namespace glm {

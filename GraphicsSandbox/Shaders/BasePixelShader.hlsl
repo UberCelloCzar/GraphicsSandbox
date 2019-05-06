@@ -27,7 +27,7 @@ Texture2D AOMap              : register(t4);
 Texture2D BRDFLookup		 : register(t5);
 TextureCube EnvIrradianceMap : register(t6);
 TextureCube EnvPrefilterMap	 : register(t7);
-Texture2D ProjectedTex1		 : register(t8);
+Texture2D ProjectedCookie1	 : register(t8);
 
 SamplerState BasicSampler	: register(s0);
 
@@ -81,7 +81,7 @@ void CalculateRadiance(VertexToPixel input, float3 view, float3 normal, float3 a
 	float3 halfway = normalize(view + light);
 	float distance = length(lightPosition - input.worldPos);
 	float attenuation = 1.0f / (distance * distance);
-	float3 radiance = lightColor * attenuation;
+	float3 radiance = lightColor * attenuation * 200.0f;
 
 	//Cook-Torrance BRDF
 	float3 F = FresnelSchlick(max(dot(halfway, view), 0.0f), F0);
@@ -132,8 +132,18 @@ float4 main(VertexToPixel input) : SV_TARGET
 	CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos2.xyz, lightColor2.rgb, F0, radiance);
 	Lo += radiance;
 
-	CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos3.xyz, lightColor3.rgb, F0, radiance);
-	Lo += radiance;
+	float2 projectedUV;
+	float4 projectedColor;
+	projectedUV.x = input.viewPosition.x / input.viewPosition.w / 2.0f + 0.5f;
+	projectedUV.y = -input.viewPosition.y / input.viewPosition.w / 2.0f + 0.5f;
+
+	if ((saturate(projectedUV.x) == projectedUV.x) && (saturate(projectedUV.y) == projectedUV.y)) // Check if inside projected area
+	{
+		projectedColor = ProjectedCookie1.Sample(BasicSampler, projectedUV);
+		CalculateRadiance(input, view, input.normal, albedo, roughness, metalness, lightPos3.xyz, lightColor3.rgb, F0, radiance);
+		Lo += radiance * 10.0f * projectedColor;
+	}
+
 
 	float3 kS = FresnelSchlickRoughness(max(dot(input.normal, view), 0.f), F0, roughness)*.8f;
 	float3 kD = float3(1.0f, 1.0f, 1.0f) - kS;
@@ -144,18 +154,9 @@ float4 main(VertexToPixel input) : SV_TARGET
 	float2 brdf = BRDFLookup.Sample(BasicSampler, float2(max(dot(input.normal, view), 0.0f), roughness)).rg;
 	float3 specular = prefilteredColor * (kS * brdf.x + brdf.y);
 
-	float2 projectedUV;
-	float4 projectedColor;
-	projectedUV.x = input.viewPosition.x / input.viewPosition.w / 2.0f + 0.5f;
-	projectedUV.y = -input.viewPosition.y / input.viewPosition.w / 2.0f + 0.5f;
 
 	float3 color = ((kD * diffuse + specular) * ao) + Lo; // Ambient + Lo
 
-	if ((saturate(projectedUV.x) == projectedUV.x) && (saturate(projectedUV.y) == projectedUV.y)) // Check if inside projected area
-	{
-		projectedColor = pow(ProjectedTex1.Sample(BasicSampler, projectedUV), 2.2);
-		color = (projectedColor * ao) + Lo;
-	}
 
 	color = color / (color + float3(1.0f, 1.0f, 1.0f));
 	color = pow(color, float3(0.45454545f, 0.45454545f, 0.45454545f));
